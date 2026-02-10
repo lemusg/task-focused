@@ -1,12 +1,19 @@
-import './App.css'
+async function pingBackend() {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ping`);
+    const data = await res.json();
+    alert(data.message);
+  } catch {
+    alert('Ping failed');
+  }
+}
 
 function App() {
-
   return (
     <>
       <h1>Task Focused</h1>
       <div className="card">
-        <button onClick={() => {alert("You clicked button")}}>
+        <button onClick={pingBackend}>
           Ping backend
         </button>
         <p>
