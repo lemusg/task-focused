@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Task Focused",
+  "version": "1.0.0",
+  "description": "Task to keep you focused on your work",
+  "action": {
+    "default_popup": "dist/index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://your-backend-domain.com/*"
+  ]
+}
