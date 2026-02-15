@@ -8,6 +8,16 @@ async function pingBackend() {
   }
 }
 
+async function pingDb() {
+  try {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/ping-db`);
+    const data = await res.json();
+    alert(data.message);
+  } catch {
+    alert('Ping DB failed');
+  }
+}
+
 function App() {
   return (
     <>
@@ -15,6 +25,9 @@ function App() {
       <div className="card">
         <button onClick={pingBackend}>
           Ping backend
+        </button>
+        <button onClick={pingDb} >
+          Ping database
         </button>
         <p>
           Edit <code>src/App.tsx</code>
