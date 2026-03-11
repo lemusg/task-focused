@@ -11,9 +11,23 @@ Steps to get this running on your machine:
 
 To connect backend server, make a `.env` file in frontend, and put in backend server (http://localhost:8000 for development)
 
+You can also define extension auth env vars in `frontend/.env`:
+- `EXTENSION_KEY` for a stable extension ID across teammates
+- `EXTENSION_OAUTH_CLIENT_ID` to inject `oauth2.client_id` at build time
+
 - from the backend, `run npm run dev`
 - from the frontend, `run npm run build`
 
 Open up chrome://extensions and turn on developer mode. Select load unpacked, and select the extensions directory. Keep in mind that since extension/dist is what is being loaded, and it is built from the frontend React code. This means that when changing the frontend, to see changes you must run npm run build and reload the extension.
 
 Keep backend server on to see changes to backend.
+
+# Stable Extension ID
+
+Add your shared extension key to `frontend/.env`:
+
+```env
+EXTENSION_KEY=<your-extension-public-key>
+```
+
+During `npm run build`, `extension/manifest.json` is automatically synced from env values.
