@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "node ../extension/sync-manifest-env.mjs && tsc -b && vite build",
+    "build:ci": "node ../extension/sync-manifest-env.mjs --no-key && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
