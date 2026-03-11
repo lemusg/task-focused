@@ -31,3 +31,15 @@ EXTENSION_KEY=<your-extension-public-key>
 ```
 
 During `npm run build`, `extension/manifest.json` is automatically synced from env values.
+
+For a commit-safe build that omits `manifest.key`, run:
+
+```bash
+cd frontend
+npm run build:ci
+```
+
+# GitHub Safety Check
+
+This repo includes a GitHub Action at `.github/workflows/block-extension-keys.yml` that fails pushes/PRs if:
+- `extension/manifest.json` contains a committed `key` field

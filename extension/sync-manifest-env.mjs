@@ -4,6 +4,7 @@ import path from 'node:path';
 const extensionDir = path.resolve(import.meta.dirname);
 const manifestPath = path.join(extensionDir, 'manifest.json');
 const frontendEnvPath = path.resolve(extensionDir, '../frontend/.env');
+const shouldSkipKey = process.argv.includes('--no-key');
 
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -38,8 +39,10 @@ const mergedEnv = { ...process.env, ...fileEnv };
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
 const extensionKey = mergedEnv.EXTENSION_KEY;
-if (extensionKey) {
+if (!shouldSkipKey && extensionKey) {
   manifest.key = extensionKey;
+} else {
+  delete manifest.key;
 }
 
 const oauthClientId = mergedEnv.EXTENSION_OAUTH_CLIENT_ID;
@@ -49,4 +52,8 @@ if (oauthClientId) {
 }
 
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-console.log('Synced extension manifest from environment variables.');
+console.log(
+  shouldSkipKey
+    ? 'Synced extension manifest from environment variables (key omitted).'
+    : 'Synced extension manifest from environment variables.'
+);
