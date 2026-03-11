@@ -13,7 +13,10 @@ type ChromeIdentity = {
     details: { token: string },
     callback: () => void
   ) => void;
-  getProfileUserInfo: (callback: (info: ProfileInfo) => void) => void;
+  getProfileUserInfo: (
+    details: { accountStatus: 'ANY' | 'SYNC' },
+    callback: (info: ProfileInfo) => void
+  ) => void;
 };
 
 type ChromeRuntime = {
@@ -95,7 +98,8 @@ function getProfileEmail(): Promise<string> {
       return;
     }
 
-    chromeApi.identity.getProfileUserInfo((info) => {
+    // Use ANY so dev profiles without Chrome Sync can still return account info.
+    chromeApi.identity.getProfileUserInfo({ accountStatus: 'ANY' }, (info) => {
       resolve(info.email ?? '');
     });
   });
