@@ -205,7 +205,7 @@ function App() {
         <p>
           Edit <code>src/App.tsx</code>
         </p>
-        <p>run 'npm run build TEST'</p>
+        <p>run 'npm run build'</p>
         <p>reload extension to see changes</p>
       </div>
     </>
