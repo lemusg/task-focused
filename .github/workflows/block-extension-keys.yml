@@ -1,0 +1,23 @@
+name: Block Extension Keys
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  detect-committed-keys:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Fail if manifest includes extension key
+        run: |
+          set -euo pipefail
+          if [ -f "extension/manifest.json" ] && grep -Eq '"key"[[:space:]]*:' extension/manifest.json; then
+            echo "Error: extension/manifest.json contains a committed \"key\" field."
+            echo "Use: cd frontend && npm run build:ci before committing."
+            exit 1
+          fi
