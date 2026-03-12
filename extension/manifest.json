@@ -9,7 +9,19 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": [],
+  "permissions": [
+    "identity",
+    "identity.email",
+    "storage"
+  ],
+  "oauth2": {
+    "client_id": "458085931355-v3tqsu6jdh5uk1eeefnpsqovuvjksboq.apps.googleusercontent.com",
+    "scopes": [
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
   "host_permissions": [
     "http://localhost:3000/*",
     "https://your-backend-domain.com/*"
