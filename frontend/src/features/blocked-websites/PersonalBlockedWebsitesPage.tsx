@@ -1,24 +1,20 @@
 import type { KeyboardEvent } from 'react';
 
-type BlockedWebsitesPageProps = {
+type PersonalBlockedWebsitesPageProps = {
   websiteInput: string;
   blockedWebsites: string[];
-  canManage: boolean;
-  organizationName: string;
   onInputChange: (value: string) => void;
   onAddWebsite: () => void;
   onRemoveWebsite: (website: string) => void;
 };
 
-export function BlockedWebsitesPage({
+export function PersonalBlockedWebsitesPage({
   websiteInput,
   blockedWebsites,
-  canManage,
-  organizationName,
   onInputChange,
   onAddWebsite,
   onRemoveWebsite,
-}: BlockedWebsitesPageProps) {
+}: PersonalBlockedWebsitesPageProps) {
   function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Enter') {
       onAddWebsite();
@@ -27,9 +23,8 @@ export function BlockedWebsitesPage({
 
   return (
     <>
-      <h2>Org blocked websites</h2>
-      <p>{organizationName ? `Organization: ${organizationName}` : 'No organization yet.'}</p>
-      {!canManage ? <p>Only admins can edit this blocklist.</p> : null}
+      <h2>Blocked websites</h2>
+      <p>Personal list stored in this browser profile.</p>
       <div className="website-form">
         <input
           type="text"
@@ -37,11 +32,8 @@ export function BlockedWebsitesPage({
           placeholder="example.com"
           onChange={(event) => onInputChange(event.target.value)}
           onKeyDown={onInputKeyDown}
-          disabled={!canManage}
         />
-        <button onClick={onAddWebsite} disabled={!canManage}>
-          Add website
-        </button>
+        <button onClick={onAddWebsite}>Add website</button>
       </div>
       {blockedWebsites.length === 0 ? (
         <p>No blocked websites yet.</p>
@@ -50,9 +42,7 @@ export function BlockedWebsitesPage({
           {blockedWebsites.map((website) => (
             <li key={website}>
               <span>{website}</span>
-              <button onClick={() => onRemoveWebsite(website)} disabled={!canManage}>
-                Remove
-              </button>
+              <button onClick={() => onRemoveWebsite(website)}>Remove</button>
             </li>
           ))}
         </ul>

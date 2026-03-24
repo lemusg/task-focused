@@ -9,7 +9,7 @@ router.get('/ping-db', async (req, res) => {
     await connectDB();
     const user = await User.findOne();
     if (user) {
-      res.json({ message: `Database connected\nSample user found: ${user.clerkId}`, user });
+      res.json({ message: `Database connected\nSample user found: ${user.userId}`, user });
     } else {
       res.json({ message: 'No users found' });
     }
