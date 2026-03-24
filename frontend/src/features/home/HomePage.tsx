@@ -27,8 +27,6 @@ export function HomePage({
 }: HomePageProps) {
   return (
     <>
-      <button onClick={onPingBackend}>Ping backend</button>
-      <button onClick={onPingDb}>Ping database</button>
       <button onClick={onSignIn}>Sign in with Google</button>
       <button onClick={onSignOut}>Sign out</button>
       {organizationName ? (
@@ -54,6 +52,8 @@ export function HomePage({
       </p>
       <p>run 'npm run build'</p>
       <p>reload extension to see changes</p>
+      <button onClick={onPingBackend}>Ping backend</button>
+      <button onClick={onPingDb}>Ping database</button>
     </>
   );
 }
