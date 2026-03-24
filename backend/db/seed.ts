@@ -7,9 +7,9 @@ const seedUsers = async () => {
   await mongoose.connect(getMongoUri());
 
   const users = [
-    { clerkId: "clerk1", role: "admin", organization: "OrgA" },
-    { clerkId: "clerk2", role: "member", organization: "OrgB" },
-    { clerkId: "clerk3", role: "member", organization: "OrgA" },
+    { clerkId: "user1", role: "admin", organization: "OrgA" },
+    { clerkId: "user2", role: "member", organization: "OrgB" },
+    { clerkId: "user3", role: "member", organization: "OrgA" },
   ];
 
   await User.deleteMany({});
