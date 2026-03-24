@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema({
-  clerkId: { type: String, required: true, unique: true }, // Link to Clerk user
+  userId: { type: String, required: true, unique: true },
   role: { type: String, enum: ["admin", "member"], required: true },
-  organization: { type: String, required: true },
+  organization: { type: String, default: null },
 });
 
 const User = mongoose.model("User", userSchema);
