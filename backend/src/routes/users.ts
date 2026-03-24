@@ -1,18 +1,15 @@
 import { Router } from 'express';
 import connectDB from '../../db';
 import User from '../../db/models/User';
+import { getAuthenticatedUserId, requireGoogleAuth } from '../middleware/requireGoogleAuth';
 
 const router = Router();
+router.use(requireGoogleAuth);
 
 router.post('/users/upsert', async (req, res) => {
   try {
     await connectDB();
-    const userId = String(req.body.userId ?? '').trim().toLowerCase();
-
-    if (!userId) {
-      res.status(400).json({ message: 'userId is required.' });
-      return;
-    }
+    const userId = getAuthenticatedUserId(req);
 
     const user = await User.findOneAndUpdate(
       { userId },

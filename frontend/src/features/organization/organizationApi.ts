@@ -40,10 +40,21 @@ async function parseJson<T>(res: Response): Promise<T> {
   return data;
 }
 
-export async function loadOrganizationByUser(backendUrl: string, userId: string) {
-  const res = await fetch(
-    `${backendUrl}/api/organizations/by-user/${encodeURIComponent(userId)}`
-  );
+function authHeaders(authToken: string) {
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${authToken}`,
+  };
+}
+
+export async function loadOrganizationByUser(
+  backendUrl: string,
+  userId: string,
+  authToken: string
+) {
+  const res = await fetch(`${backendUrl}/api/organizations/by-user/${encodeURIComponent(userId)}`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
 
   if (res.status === 404) {
     return null;
@@ -54,13 +65,13 @@ export async function loadOrganizationByUser(backendUrl: string, userId: string)
 
 export async function createOrganization(
   backendUrl: string,
-  userId: string,
+  authToken: string,
   organizationName: string
 ) {
   const res = await fetch(`${backendUrl}/api/organizations`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, organizationName }),
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ organizationName }),
   });
 
   return parseJson<CreateOrganizationResponse>(res);
@@ -69,13 +80,13 @@ export async function createOrganization(
 export async function addWebsiteToBlocklist(
   backendUrl: string,
   organizationId: string,
-  userId: string,
+  authToken: string,
   website: string
 ) {
   const res = await fetch(`${backendUrl}/api/organizations/${organizationId}/blocklist`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, website }),
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ website }),
   });
 
   return parseJson<BlocklistResponse>(res);
@@ -84,13 +95,13 @@ export async function addWebsiteToBlocklist(
 export async function removeWebsiteFromBlocklist(
   backendUrl: string,
   organizationId: string,
-  userId: string,
+  authToken: string,
   website: string
 ) {
   const res = await fetch(`${backendUrl}/api/organizations/${organizationId}/blocklist`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, website }),
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ website }),
   });
 
   return parseJson<BlocklistResponse>(res);
@@ -99,12 +110,12 @@ export async function removeWebsiteFromBlocklist(
 export async function leaveOrganization(
   backendUrl: string,
   organizationId: string,
-  userId: string
+  authToken: string
 ) {
   const res = await fetch(`${backendUrl}/api/organizations/${organizationId}/leave`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId }),
+    headers: authHeaders(authToken),
+    body: JSON.stringify({}),
   });
 
   return parseJson<LeaveOrganizationResponse>(res);
