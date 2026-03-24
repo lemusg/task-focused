@@ -9,7 +9,7 @@ type ChromeApi = {
   storage?: ChromeStorage;
 };
 
-const BLOCKED_WEBSITES_KEY = 'blockedWebsites';
+const PERSONAL_BLOCKED_WEBSITES_KEY = 'personalBlockedWebsites';
 const chromeApi = (globalThis as { chrome?: ChromeApi }).chrome;
 
 export function normalizeWebsite(input: string): string {
@@ -28,13 +28,13 @@ export function normalizeWebsite(input: string): string {
   return parsed.hostname;
 }
 
-export async function loadBlockedWebsites(): Promise<string[]> {
+export async function loadPersonalBlockedWebsites(): Promise<string[]> {
   if (!chromeApi?.storage?.local) {
     return [];
   }
 
-  const data = await chromeApi.storage.local.get(BLOCKED_WEBSITES_KEY);
-  const websites = data[BLOCKED_WEBSITES_KEY];
+  const data = await chromeApi.storage.local.get(PERSONAL_BLOCKED_WEBSITES_KEY);
+  const websites = data[PERSONAL_BLOCKED_WEBSITES_KEY];
 
   if (!Array.isArray(websites)) {
     return [];
@@ -43,8 +43,8 @@ export async function loadBlockedWebsites(): Promise<string[]> {
   return websites.filter((item): item is string => typeof item === 'string');
 }
 
-export async function saveBlockedWebsites(websites: string[]) {
+export async function savePersonalBlockedWebsites(websites: string[]) {
   if (chromeApi?.storage?.local) {
-    await chromeApi.storage.local.set({ [BLOCKED_WEBSITES_KEY]: websites });
+    await chromeApi.storage.local.set({ [PERSONAL_BLOCKED_WEBSITES_KEY]: websites });
   }
 }
