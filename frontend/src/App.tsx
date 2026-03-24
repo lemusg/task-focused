@@ -44,13 +44,16 @@ function App() {
   const [orgBlockedWebsites, setOrgBlockedWebsites] = useState<string[]>([]);
   const [status, setStatus] = useState<string>('Ready');
 
-  async function refreshOrganizationForUser(userId: string) {
-    if (!userId) {
+  async function refreshOrganizationForUser(userId: string, authToken: string) {
+    if (!userId || !authToken) {
+      setOrganization(null);
+      setOrgBlockedWebsites([]);
+      setIsAdmin(false);
       return;
     }
 
     try {
-      const payload = await loadOrganizationByUser(backendUrl, userId);
+      const payload = await loadOrganizationByUser(backendUrl, userId, authToken);
       if (!payload) {
         setOrganization(null);
         setOrgBlockedWebsites([]);
@@ -68,22 +71,43 @@ function App() {
   }
 
   useEffect(() => {
-    loadSavedToken().then((savedToken) => {
+    let isMounted = true;
+
+    async function initialize() {
+      const [savedToken, nextEmail, personalWebsites] = await Promise.all([
+        loadSavedToken(),
+        getProfileEmail(),
+        loadPersonalBlockedWebsites(),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      setPersonalBlockedWebsites(personalWebsites);
+      setEmail(nextEmail);
+
       if (savedToken) {
         setToken(savedToken);
         setStatus('Loaded existing identity token from storage.');
       }
-    });
-    loadPersonalBlockedWebsites().then(setPersonalBlockedWebsites);
-    getProfileEmail().then((nextEmail) => {
-      setEmail(nextEmail);
-      if (nextEmail) {
-        void upsertOAuthUser(backendUrl, nextEmail).catch(() => {
+
+      if (savedToken && nextEmail) {
+        void upsertOAuthUser(backendUrl, savedToken).catch(() => {
           // Ignore background sync errors here; sign-in path shows actionable status.
         });
+        void refreshOrganizationForUser(nextEmail, savedToken);
+      } else {
+        setOrganization(null);
+        setOrgBlockedWebsites([]);
+        setIsAdmin(false);
       }
-      void refreshOrganizationForUser(nextEmail);
-    });
+    }
+
+    void initialize();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   async function signIn() {
@@ -106,10 +130,10 @@ function App() {
       await saveToken(nextToken);
       const profileEmail = await getProfileEmail();
       if (profileEmail) {
-        await upsertOAuthUser(backendUrl, profileEmail);
+        await upsertOAuthUser(backendUrl, nextToken);
       }
       setEmail(profileEmail);
-      await refreshOrganizationForUser(profileEmail);
+      await refreshOrganizationForUser(profileEmail, nextToken);
       setToken(nextToken);
       setStatus('Signed in with chrome.identity token.');
     } catch (error) {
@@ -127,6 +151,7 @@ function App() {
     await removeCachedToken(token);
     await clearSavedToken();
     setToken('');
+    setEmail('');
     setOrganization(null);
     setOrgBlockedWebsites([]);
     setIsAdmin(false);
@@ -183,12 +208,17 @@ function App() {
 
   async function addOrgBlockedWebsite() {
     try {
+      if (!token) {
+        setStatus('Sign in first to edit the organization blocklist.');
+        return;
+      }
+
       if (!organization) {
         setStatus('Create an organization first.');
         return;
       }
 
-      if (!email) {
+      if (!token) {
         setStatus('Sign in first to edit the organization blocklist.');
         return;
       }
@@ -202,7 +232,7 @@ function App() {
       const payload = await addWebsiteToBlocklist(
         backendUrl,
         organization.id,
-        email,
+        token,
         normalizedWebsite
       );
 
@@ -216,13 +246,13 @@ function App() {
   }
 
   async function removeOrgBlockedWebsite(website: string) {
-    if (!organization) {
-      setStatus('Create an organization first.');
+    if (!token) {
+      setStatus('Sign in first to edit the organization blocklist.');
       return;
     }
 
-    if (!email) {
-      setStatus('Sign in first to edit the organization blocklist.');
+    if (!organization) {
+      setStatus('Create an organization first.');
       return;
     }
 
@@ -232,7 +262,7 @@ function App() {
     }
 
     try {
-      const payload = await removeWebsiteFromBlocklist(backendUrl, organization.id, email, website);
+      const payload = await removeWebsiteFromBlocklist(backendUrl, organization.id, token, website);
       setOrgBlockedWebsites(payload.blockedWebsites);
       setStatus(`Removed ${website} from org blocked websites.`);
     } catch (error) {
@@ -243,7 +273,7 @@ function App() {
 
   async function createOrganizationForCurrentUser() {
     const nextOrgName = organizationNameInput.trim();
-    if (!email) {
+    if (!token) {
       setStatus('Sign in first to create an organization.');
       return;
     }
@@ -254,7 +284,7 @@ function App() {
     }
 
     try {
-      const payload = await createOrganization(backendUrl, email, nextOrgName);
+      const payload = await createOrganization(backendUrl, token, nextOrgName);
       setOrganization(payload.organization);
       setIsAdmin(true);
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
@@ -267,7 +297,7 @@ function App() {
   }
 
   async function leaveCurrentOrganization() {
-    if (!organization || !email) {
+    if (!token || !organization) {
       setStatus('No organization to leave.');
       return;
     }
@@ -278,7 +308,7 @@ function App() {
     }
 
     try {
-      const payload = await leaveOrganization(backendUrl, organization.id, email);
+      const payload = await leaveOrganization(backendUrl, organization.id, token);
       setOrganization(null);
       setIsAdmin(false);
       setOrgBlockedWebsites([]);
