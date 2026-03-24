@@ -2,8 +2,10 @@ import { Router } from 'express';
 import connectDB from '../../db';
 import Organization from '../../db/models/Organization';
 import User from '../../db/models/User';
+import { getAuthenticatedUserId, requireGoogleAuth } from '../middleware/requireGoogleAuth';
 
 const router = Router();
+router.use(requireGoogleAuth);
 
 function normalizeUserId(input: string): string {
   return input.trim().toLowerCase();
@@ -35,11 +37,11 @@ function normalizeWebsite(input: string): string {
 router.post('/organizations', async (req, res) => {
   try {
     await connectDB();
-    const userId = normalizeUserId(String(req.body.userId ?? ''));
+    const userId = getAuthenticatedUserId(req);
     const organizationName = String(req.body.organizationName ?? '').trim();
 
-    if (!userId || !organizationName) {
-      res.status(400).json({ message: 'userId and organizationName are required.' });
+    if (!organizationName) {
+      res.status(400).json({ message: 'organizationName is required.' });
       return;
     }
 
@@ -96,9 +98,10 @@ router.post('/organizations', async (req, res) => {
 router.get('/organizations/by-user/:userId', async (req, res) => {
   try {
     await connectDB();
-    const userId = normalizeUserId(String(req.params.userId ?? ''));
-    if (!userId) {
-      res.status(400).json({ message: 'userId is required.' });
+    const userId = getAuthenticatedUserId(req);
+    const requestedUserId = normalizeUserId(String(req.params.userId ?? ''));
+    if (requestedUserId && requestedUserId !== userId) {
+      res.status(403).json({ message: 'Forbidden for requested user.' });
       return;
     }
 
@@ -131,11 +134,11 @@ router.post('/organizations/:organizationId/blocklist', async (req, res) => {
   try {
     await connectDB();
     const organizationId = String(req.params.organizationId ?? '').trim();
-    const userId = normalizeUserId(String(req.body.userId ?? ''));
+    const userId = getAuthenticatedUserId(req);
     const websiteInput = String(req.body.website ?? '');
 
-    if (!organizationId || !userId || !websiteInput) {
-      res.status(400).json({ message: 'organizationId, userId, and website are required.' });
+    if (!organizationId || !websiteInput) {
+      res.status(400).json({ message: 'organizationId and website are required.' });
       return;
     }
 
@@ -171,11 +174,11 @@ router.delete('/organizations/:organizationId/blocklist', async (req, res) => {
   try {
     await connectDB();
     const organizationId = String(req.params.organizationId ?? '').trim();
-    const userId = normalizeUserId(String(req.body.userId ?? ''));
+    const userId = getAuthenticatedUserId(req);
     const websiteInput = String(req.body.website ?? '');
 
-    if (!organizationId || !userId || !websiteInput) {
-      res.status(400).json({ message: 'organizationId, userId, and website are required.' });
+    if (!organizationId || !websiteInput) {
+      res.status(400).json({ message: 'organizationId and website are required.' });
       return;
     }
 
@@ -210,10 +213,10 @@ router.post('/organizations/:organizationId/leave', async (req, res) => {
   try {
     await connectDB();
     const organizationId = String(req.params.organizationId ?? '').trim();
-    const userId = normalizeUserId(String(req.body.userId ?? ''));
+    const userId = getAuthenticatedUserId(req);
 
-    if (!organizationId || !userId) {
-      res.status(400).json({ message: 'organizationId and userId are required.' });
+    if (!organizationId) {
+      res.status(400).json({ message: 'organizationId is required.' });
       return;
     }
 
