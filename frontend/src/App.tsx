@@ -89,7 +89,9 @@ function App() {
 
       if (savedToken) {
         setToken(savedToken);
-        setStatus('Loaded existing identity token from storage.');
+        setStatus((currentStatus) =>
+          currentStatus === 'Ready' ? 'Loaded existing identity token from storage.' : currentStatus
+        );
       }
 
       if (savedToken && nextEmail) {
