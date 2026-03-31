@@ -150,7 +150,7 @@ function App() {
         setStatus(
           `Set extension/manifest.json oauth2.client_id to a real Google OAuth client. Redirect URI must include https://${extensionId}.chromiumapp.org/`
         );
-        return false;
+        return;
       }
 
       setStatus('Opening Google sign-in...');
@@ -164,18 +164,9 @@ function App() {
       await refreshOrganizationForUser(profileEmail, nextToken);
       setToken(nextToken);
       setStatus('Signed in with chrome.identity token.');
-      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Sign-in failed';
       setStatus(message);
-      return false;
-    }
-  }
-
-  async function signInFromUserHome() {
-    const signedIn = await signIn();
-    if (signedIn) {
-      setPopupPage('user-login-choice');
     }
   }
 
@@ -363,13 +354,7 @@ function App() {
       <>
         <h1>TaskFocused</h1>
         <div className="card user-home-actions">
-          <button
-            onClick={() => {
-              void signInFromUserHome();
-            }}
-          >
-            Login
-          </button>
+          <button onClick={() => setPopupPage('user-login-choice')}>Login</button>
           <button onClick={() => setPopupPage('dev-tools')}>Open Developer UI</button>
         </div>
       </>
