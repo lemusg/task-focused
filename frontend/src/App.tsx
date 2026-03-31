@@ -28,10 +28,20 @@ import {
 import { upsertOAuthUser } from './features/users/usersApi';
 
 type View = 'home' | 'blocked-websites' | 'organization';
+type PopupPage =
+  | 'user-home'
+  | 'user-login-choice'
+  | 'user-personal'
+  | 'user-create-organization'
+  | 'user-organization-owner'
+  | 'user-join-organization'
+  | 'user-organization-member'
+  | 'dev-tools';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 function App() {
+  const [popupPage, setPopupPage] = useState<PopupPage>('user-home');
   const [view, setView] = useState<View>('home');
   const [token, setToken] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -42,7 +52,23 @@ function App() {
   const [personalBlockedWebsites, setPersonalBlockedWebsites] = useState<string[]>([]);
   const [orgWebsiteInput, setOrgWebsiteInput] = useState<string>('');
   const [orgBlockedWebsites, setOrgBlockedWebsites] = useState<string[]>([]);
+  const [userCreateOrganizationName, setUserCreateOrganizationName] = useState<string>('');
+  const [userJoinOrganizationId, setUserJoinOrganizationId] = useState<string>('');
   const [status, setStatus] = useState<string>('Ready');
+
+  function goToCreatedOrganizationHome() {
+    if (!userCreateOrganizationName.trim()) {
+      return;
+    }
+    setPopupPage('user-organization-owner');
+  }
+
+  function goToJoinedOrganizationHome() {
+    if (!userJoinOrganizationId.trim()) {
+      return;
+    }
+    setPopupPage('user-organization-member');
+  }
 
   async function refreshOrganizationForUser(userId: string, authToken: string) {
     if (!userId || !authToken) {
@@ -124,7 +150,7 @@ function App() {
         setStatus(
           `Set extension/manifest.json oauth2.client_id to a real Google OAuth client. Redirect URI must include https://${extensionId}.chromiumapp.org/`
         );
-        return;
+        return false;
       }
 
       setStatus('Opening Google sign-in...');
@@ -138,9 +164,18 @@ function App() {
       await refreshOrganizationForUser(profileEmail, nextToken);
       setToken(nextToken);
       setStatus('Signed in with chrome.identity token.');
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Sign-in failed';
       setStatus(message);
+      return false;
+    }
+  }
+
+  async function signInFromUserHome() {
+    const signedIn = await signIn();
+    if (signedIn) {
+      setPopupPage('user-login-choice');
     }
   }
 
@@ -323,12 +358,128 @@ function App() {
     }
   }
 
+  if (popupPage === 'user-home') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <div className="card user-home-actions">
+          <button
+            onClick={() => {
+              void signInFromUserHome();
+            }}
+          >
+            Login
+          </button>
+          <button onClick={() => setPopupPage('dev-tools')}>Open Developer UI</button>
+        </div>
+      </>
+    );
+  }
+
+  if (popupPage === 'user-login-choice') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <div className="card user-home-actions">
+          <p>
+            If you want to use this extension for yourself, select 'Personal', if you want to create
+            an organization for managing other users, select 'Create Organization', if you want to join
+            an existing organization, select 'Join Organization'.
+          </p>
+          <button onClick={() => setPopupPage('user-personal')}>Personal</button>
+          <button onClick={() => setPopupPage('user-create-organization')}>Create Organization</button>
+          <button onClick={() => setPopupPage('user-join-organization')}>Join Organization</button>
+        </div>
+      </>
+    );
+  }
+
+  if (popupPage === 'user-personal') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <div className="card user-home-actions">
+          <button>Blocked Sites</button>
+          <button onClick={() => setPopupPage('user-home')}>Logout</button>
+        </div>
+      </>
+    );
+  }
+
+  if (popupPage === 'user-create-organization') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <div className="card user-home-actions">
+          <label htmlFor="user-create-org-name">Organization Name:</label>
+          <input
+            id="user-create-org-name"
+            type="text"
+            value={userCreateOrganizationName}
+            onChange={(event) => setUserCreateOrganizationName(event.target.value)}
+          />
+          <button onClick={goToCreatedOrganizationHome}>Create Organization</button>
+          <button onClick={() => setPopupPage('user-login-choice')}>Back</button>
+        </div>
+      </>
+    );
+  }
+
+  if (popupPage === 'user-organization-owner') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <p className="org-name-subtitle">Organization Name: Placeholder Organization</p>
+        <div className="card organization-owner-page">
+          <button>Blocked Sites</button>
+          <button>View Users</button>
+          <button onClick={() => setPopupPage('user-home')}>Logout</button>
+          <button className="danger-button">Delete Organization</button>
+          <p className="org-id-footer">Organization ID:</p>
+        </div>
+      </>
+    );
+  }
+
+  if (popupPage === 'user-join-organization') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <div className="card user-home-actions">
+          <label htmlFor="user-join-org-id">Organization ID:</label>
+          <input
+            id="user-join-org-id"
+            type="text"
+            value={userJoinOrganizationId}
+            onChange={(event) => setUserJoinOrganizationId(event.target.value)}
+          />
+          <p className="helper-text">If you don't know your organization ID, ask your administrator.</p>
+          <button onClick={goToJoinedOrganizationHome}>Join Organization</button>
+          <button onClick={() => setPopupPage('user-login-choice')}>Back</button>
+        </div>
+      </>
+    );
+  }
+
+  if (popupPage === 'user-organization-member') {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <p className="org-name-subtitle">Organization Name: Placeholder Organization</p>
+        <div className="card user-home-actions">
+          <button onClick={() => setPopupPage('user-home')}>Logout</button>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <h1>Task Focused</h1>
       <div className="view-switch">
+        <button onClick={() => setPopupPage('user-home')}>Home</button>
         <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
-          Home
+          Developer
         </button>
         <button
           className={view === 'blocked-websites' ? 'active' : ''}
