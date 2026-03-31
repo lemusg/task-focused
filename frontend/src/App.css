@@ -42,10 +42,51 @@
   padding: 1rem;
 }
 
+.user-home-actions {
+  min-height: 190px;
+  justify-content: center;
+}
+
+.user-home-actions input {
+  border-radius: 8px;
+  border: 1px solid #444;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+}
+
+.helper-text {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.organization-owner-page {
+  min-height: 220px;
+}
+
+.org-name-subtitle {
+  margin: -0.35rem 0 0.5rem;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.danger-button {
+  color: #dc2626;
+}
+
+.org-id-footer {
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
 .view-switch {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.view-switch button {
+  flex: 1 1 calc(50% - 0.5rem);
 }
 
 .view-switch button.active {
