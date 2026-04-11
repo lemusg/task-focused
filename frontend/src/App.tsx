@@ -445,7 +445,7 @@ function App() {
         <h1>TaskFocused</h1>
         <div className="card user-home-actions">
           <button onClick={() => setPopupPage('user-login-choice')}>Login</button>
-          <button onClick={() => setPopupPage('dev-tools')}>Open Developer UI</button>\
+          <button onClick={() => setPopupPage('dev-tools')}>Open Developer UI</button>
           <p>{status}</p>
         </div>
       </>
