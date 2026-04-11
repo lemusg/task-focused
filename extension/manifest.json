@@ -27,6 +27,5 @@
     "<all_urls>",
     "http://localhost:8000/*",
     "https://your-backend-domain.com/*"
-  ],
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwCzUrRqAouQOPyn330pASmZTvICD+9EHgo0UCJuBRgWn7zMMhKR58LTfZ3kctMiongOvhyOBe23us4k2yY+slTZuPsGtCoQKOmpyP4oqn3vuc+s5bE6iZYi5mbizBXONeyOI9N3qX8fNbjjANN936TfBesIaTLMSZFEoDq++XhnzlO59o1/E1T7p7kgE4CSdpbq8lFdzy5/4b2wj2nGqFMeEPE+kbanTkSEUDAAcAzbLHDrm3ylX/mrsmzlhpqX+h2k3U7AmScrMCBZ6fh46bDM2a7iFvxbx0JSfIqFrDvGiTcz/58oEo8r6jj4neUuwAkJDO2rRKpYLWja6izQmxQIDAQAB"
+  ]
 }
