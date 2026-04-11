@@ -42,6 +42,15 @@ type PopupPage =
   | 'dev-tools';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const authDebugLoggingEnabled = import.meta.env.DEV;
+
+function debugAuthLog(message?: unknown, ...optionalParams: unknown[]) {
+  if (!authDebugLoggingEnabled) {
+    return;
+  }
+
+  console.log(message, ...optionalParams);
+}
 
 function App() {
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
@@ -199,18 +208,18 @@ function App() {
       }
 
       setStatus('Opening Google sign-in...');
-      console.log('signIn started');
-      
+      debugAuthLog('signIn started');
+
       const nextToken = await getAuthToken(true);
-      console.log('token received:', !!nextToken);
+      debugAuthLog('token received:', !!nextToken);
 
       await saveToken(nextToken);
-      console.log('token saved');
+      debugAuthLog('token saved');
 
       let profileEmail = '';
       try {
         profileEmail = await getProfileEmail();
-        console.log('profileEmail:', profileEmail);
+        debugAuthLog('profileEmail:', profileEmail);
       } catch (error) {
         console.error('getProfileEmail failed during signIn:', error);
       }
