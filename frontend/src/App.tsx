@@ -232,8 +232,6 @@ function App() {
         setOrgBlockedWebsites([]);
         setIsAdmin(false);
       }
-
-      setStatus('Signed in with chrome.identity token.');
     } catch (error) {
       console.error('signIn error:', error);
       const message = error instanceof Error ? error.message : 'Sign-in failed';
