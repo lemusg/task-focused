@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { BlockedWebsitesPage } from './features/blocked-websites/BlockedWebsitesPage';
 import { PersonalBlockedWebsitesPage } from './features/blocked-websites/PersonalBlockedWebsitesPage';
 import {
+  clearOrgBlockedWebsites,
+  loadOrgBlockedWebsites,
   loadPersonalBlockedWebsites,
   normalizeWebsite,
+  saveOrgBlockedWebsites,
   savePersonalBlockedWebsites,
 } from './features/blocked-websites/blockedWebsites';
 import {
@@ -41,6 +44,7 @@ type PopupPage =
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 function App() {
+  const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [popupPage, setPopupPage] = useState<PopupPage>('user-home');
   const [view, setView] = useState<View>('home');
   const [token, setToken] = useState<string>('');
@@ -75,6 +79,7 @@ function App() {
       setOrganization(null);
       setOrgBlockedWebsites([]);
       setIsAdmin(false);
+      setPopupPage('user-home');
       return;
     }
 
@@ -84,12 +89,19 @@ function App() {
         setOrganization(null);
         setOrgBlockedWebsites([]);
         setIsAdmin(false);
+        setPopupPage('user-personal');
         return;
       }
 
       setOrganization(payload.organization);
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
       setIsAdmin(payload.isAdmin);
+
+      if(payload.isAdmin) {
+        setPopupPage('user-organization-owner');
+      } else {
+        setPopupPage('user-organization-member');
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load organization.';
       setStatus(message);
@@ -100,35 +112,68 @@ function App() {
     let isMounted = true;
 
     async function initialize() {
-      const [savedToken, nextEmail, personalWebsites] = await Promise.all([
-        loadSavedToken(),
-        getProfileEmail(),
-        loadPersonalBlockedWebsites(),
-      ]);
+      try {
+        const savedToken = await loadSavedToken();
+        const personalWebsites = await loadPersonalBlockedWebsites();
+        const orgWebsites = await loadOrgBlockedWebsites();
 
-      if (!isMounted) {
-        return;
-      }
+        let nextEmail = '';
+        try {
+          nextEmail = await getProfileEmail();
+        } catch (error) {
+          console.error('getProfileEmail failed during initialization:', error);
+        }
 
-      setPersonalBlockedWebsites(personalWebsites);
-      setEmail(nextEmail);
 
-      if (savedToken) {
-        setToken(savedToken);
-        setStatus((currentStatus) =>
-          currentStatus === 'Ready' ? 'Loaded existing identity token from storage.' : currentStatus
-        );
-      }
+        if (!isMounted) {
+          return;
+        }
 
-      if (savedToken && nextEmail) {
-        void upsertOAuthUser(backendUrl, savedToken).catch(() => {
-          // Ignore background sync errors here; sign-in path shows actionable status.
-        });
-        void refreshOrganizationForUser(nextEmail, savedToken);
-      } else {
-        setOrganization(null);
-        setOrgBlockedWebsites([]);
-        setIsAdmin(false);
+        setPersonalBlockedWebsites(personalWebsites);
+        setOrgBlockedWebsites(orgWebsites);
+        setEmail(nextEmail);
+
+        if (savedToken) {
+          setToken(savedToken);
+          setStatus((currentStatus) =>
+            currentStatus === 'Ready'
+            ? 'Loaded existing identity token from storage.'
+            : currentStatus
+          );
+
+          setPopupPage('user-personal');
+
+          void upsertOAuthUser(backendUrl, savedToken).catch((error) => {
+            console.error('upsertOAuthUser failed during initialization:', error);
+          });
+
+          if (nextEmail) {
+            setPopupPage('user-personal');
+
+            if(nextEmail) {
+              void refreshOrganizationForUser(nextEmail, savedToken).catch((error) => {
+                console.error('initialize org refresh failed:', error);
+              });
+            }
+          } else {
+            setOrganization(null);
+            setOrgBlockedWebsites([]);
+            setIsAdmin(false);
+          }
+        } else {
+          setOrganization(null);
+          setOrgBlockedWebsites([]);
+          setIsAdmin(false);
+          setPopupPage('user-home');
+        }
+      } catch (error) {
+        console.error('initialize failed:', error);
+        setStatus(error instanceof Error ? error.message : "Initialization failed");
+        setPopupPage('user-home');
+      } finally {
+        if (isMounted) {
+        setIsInitializing(false);
+        }
       }
     }
 
@@ -154,17 +199,43 @@ function App() {
       }
 
       setStatus('Opening Google sign-in...');
+      console.log('signIn started');
+      
       const nextToken = await getAuthToken(true);
+      console.log('token received:', !!nextToken);
+
       await saveToken(nextToken);
-      const profileEmail = await getProfileEmail();
-      if (profileEmail) {
-        await upsertOAuthUser(backendUrl, nextToken);
+      console.log('token saved');
+
+      let profileEmail = '';
+      try {
+        profileEmail = await getProfileEmail();
+        console.log('profileEmail:', profileEmail);
+      } catch (error) {
+        console.error('getProfileEmail failed during signIn:', error);
       }
-      setEmail(profileEmail);
-      await refreshOrganizationForUser(profileEmail, nextToken);
+
       setToken(nextToken);
+      setEmail(profileEmail);
+      setPopupPage('user-personal');
+      setStatus('Signed in with Google.');
+
+      if(profileEmail) {
+        void upsertOAuthUser(backendUrl, nextToken)
+          .then(() => refreshOrganizationForUser(profileEmail, nextToken))
+          .catch((error) => {
+            console.error('upsertOAuthUser failed during signIn:', error);
+            setStatus(error instanceof Error ? error.message : 'Sign-in succeeded but failed to sync user with backend.');
+          });
+      } else {
+        setOrganization(null);
+        setOrgBlockedWebsites([]);
+        setIsAdmin(false);
+      }
+
       setStatus('Signed in with chrome.identity token.');
     } catch (error) {
+      console.error('signIn error:', error);
       const message = error instanceof Error ? error.message : 'Sign-in failed';
       setStatus(message);
     }
@@ -178,11 +249,13 @@ function App() {
 
     await removeCachedToken(token);
     await clearSavedToken();
+    await clearOrgBlockedWebsites();
     setToken('');
     setEmail('');
     setOrganization(null);
     setOrgBlockedWebsites([]);
     setIsAdmin(false);
+    setPopupPage('user-home');
     setStatus('Signed out and token cleared.');
   }
 
@@ -341,6 +414,7 @@ function App() {
       setIsAdmin(false);
       setOrgBlockedWebsites([]);
       setOrgWebsiteInput('');
+      await clearOrgBlockedWebsites();
       setView('home');
       setStatus(payload.message ?? 'Left organization.');
     } catch (error) {
@@ -349,13 +423,30 @@ function App() {
     }
   }
 
+
+  useEffect(() => {
+    void saveOrgBlockedWebsites(orgBlockedWebsites);
+  }, [orgBlockedWebsites]);
+
+  if (isInitializing) {
+    return (
+      <>
+        <h1>TaskFocused</h1>
+        <div className="card user-home-actions">
+          <p>Loading...</p>
+        </div>
+      </>
+    );
+  }
+
   if (popupPage === 'user-home') {
     return (
       <>
         <h1>TaskFocused</h1>
         <div className="card user-home-actions">
           <button onClick={() => setPopupPage('user-login-choice')}>Login</button>
-          <button onClick={() => setPopupPage('dev-tools')}>Open Developer UI</button>
+          <button onClick={() => setPopupPage('dev-tools')}>Open Developer UI</button>\
+          <p>{status}</p>
         </div>
       </>
     );
@@ -371,9 +462,10 @@ function App() {
             an organization for managing other users, select 'Create Organization', if you want to join
             an existing organization, select 'Join Organization'.
           </p>
-          <button onClick={() => setPopupPage('user-personal')}>Personal</button>
-          <button onClick={() => setPopupPage('user-create-organization')}>Create Organization</button>
-          <button onClick={() => setPopupPage('user-join-organization')}>Join Organization</button>
+          <button onClick={() => void signIn()}>Personal</button>
+          <button onClick={() => void signIn().then(() => setPopupPage('user-create-organization'))}>Create Organization</button>
+          <button onClick={() => void signIn().then(() => setPopupPage('user-join-organization'))}>Join Organization</button>
+          <p>{status}</p>
         </div>
       </>
     );
@@ -385,7 +477,7 @@ function App() {
         <h1>TaskFocused</h1>
         <div className="card user-home-actions">
           <button>Blocked Sites</button>
-          <button onClick={() => setPopupPage('user-home')}>Logout</button>
+          <button onClick={() => void signOut()}>Logout</button>
         </div>
       </>
     );
@@ -418,7 +510,7 @@ function App() {
         <div className="card organization-owner-page">
           <button>Blocked Sites</button>
           <button>View Users</button>
-          <button onClick={() => setPopupPage('user-home')}>Logout</button>
+          <button onClick={() => void signOut()}>Logout</button>
           <button className="danger-button">Delete Organization</button>
           <p className="org-id-footer">Organization ID:</p>
         </div>
@@ -452,7 +544,7 @@ function App() {
         <h1>TaskFocused</h1>
         <p className="org-name-subtitle">Organization Name: Placeholder Organization</p>
         <div className="card user-home-actions">
-          <button onClick={() => setPopupPage('user-home')}>Logout</button>
+          <button onClick={() => void signOut()}>Logout</button>
         </div>
       </>
     );
