@@ -426,6 +426,17 @@ function App() {
     void saveOrgBlockedWebsites(orgBlockedWebsites);
   }, [orgBlockedWebsites]);
 
+  const navigateAfterSuccessfulSignIn = async (
+    nextPage: 'user-create-organization' | 'user-join-organization',
+  ) => {
+    await signIn();
+    const savedToken = await loadSavedToken();
+
+    if (savedToken) {
+      setPopupPage(nextPage);
+    }
+  };
+
   if (isInitializing) {
     return (
       <>
@@ -461,8 +472,12 @@ function App() {
             an existing organization, select 'Join Organization'.
           </p>
           <button onClick={() => void signIn()}>Personal</button>
-          <button onClick={() => void signIn().then(() => setPopupPage('user-create-organization'))}>Create Organization</button>
-          <button onClick={() => void signIn().then(() => setPopupPage('user-join-organization'))}>Join Organization</button>
+          <button onClick={() => void navigateAfterSuccessfulSignIn('user-create-organization')}>
+            Create Organization
+          </button>
+          <button onClick={() => void navigateAfterSuccessfulSignIn('user-join-organization')}>
+            Join Organization
+          </button>
           <p>{status}</p>
         </div>
       </>
