@@ -122,9 +122,11 @@ function App() {
 
     async function initialize() {
       try {
-        const savedToken = await loadSavedToken();
-        const personalWebsites = await loadPersonalBlockedWebsites();
-        const orgWebsites = await loadOrgBlockedWebsites();
+        const [savedToken, personalWebsites, orgWebsites] = await Promise.all([
+          loadSavedToken(),
+          loadPersonalBlockedWebsites(),
+          loadOrgBlockedWebsites(),
+        ]);
 
         let nextEmail = '';
         try {
@@ -132,7 +134,6 @@ function App() {
         } catch (error) {
           console.error('getProfileEmail failed during initialization:', error);
         }
-
 
         if (!isMounted) {
           return;
@@ -149,7 +150,6 @@ function App() {
             ? 'Loaded existing identity token from storage.'
             : currentStatus
           );
-
           setPopupPage('user-personal');
 
           void upsertOAuthUser(backendUrl, savedToken).catch((error) => {
@@ -157,13 +157,9 @@ function App() {
           });
 
           if (nextEmail) {
-            setPopupPage('user-personal');
-
-            if(nextEmail) {
-              void refreshOrganizationForUser(nextEmail, savedToken).catch((error) => {
-                console.error('initialize org refresh failed:', error);
-              });
-            }
+            void refreshOrganizationForUser(nextEmail, savedToken).catch((error) => {
+              console.error('initialize org refresh failed:', error);
+            });
           } else {
             setOrganization(null);
             setOrgBlockedWebsites([]);
