@@ -58,7 +58,6 @@ export async function savePersonalBlockedWebsites(websites: string[]) {
     await chromeApi.storage.local.set({
       [PERSONAL_BLOCKED_WEBSITES_KEY]: sanitizeWebsiteList(websites),
     });
-    await syncBlockingRules();
   }
 }
 
@@ -74,7 +73,6 @@ export async function loadOrgBlockedWebsites(): Promise<string[]> {
 export async function saveOrgBlockedWebsites(websites: string[]) {
   if (chromeApi?.storage?.local) {
     await chromeApi.storage.local.set({ [ORG_BLOCKED_WEBSITES_KEY]: sanitizeWebsiteList(websites) });
-    await syncBlockingRules();
   }
 }
 
