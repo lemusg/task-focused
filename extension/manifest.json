@@ -12,7 +12,8 @@
   "permissions": [
     "identity",
     "identity.email",
-    "storage"
+    "storage",
+    "declarativeNetRequest"
   ],
   "oauth2": {
     "client_id": "458085931355-v3tqsu6jdh5uk1eeefnpsqovuvjksboq.apps.googleusercontent.com",
@@ -23,7 +24,8 @@
     ]
   },
   "host_permissions": [
-    "http://localhost:3000/*",
+    "<all_urls>",
+    "http://localhost:8000/*",
     "https://your-backend-domain.com/*"
   ]
 }
