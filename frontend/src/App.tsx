@@ -31,7 +31,6 @@ import {
 import { upsertOAuthUser } from './features/users/usersApi';
 
 type View = 'home' | 'blocked-websites' | 'organization';
-type PopupPage = 'user-home';
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 const authDebugLoggingEnabled = import.meta.env.DEV;
@@ -46,7 +45,6 @@ function debugAuthLog(message?: unknown, ...optionalParams: unknown[]) {
 
 function App() {
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
-  const [popupPage, setPopupPage] = useState<PopupPage>('user-home');
   const [view, setView] = useState<View>('home');
   const [token, setToken] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -65,7 +63,6 @@ function App() {
       setOrganization(null);
       setOrgBlockedWebsites([]);
       setIsAdmin(false);
-      setPopupPage('user-home');
       return;
     }
 
@@ -75,7 +72,6 @@ function App() {
         setOrganization(null);
         setOrgBlockedWebsites([]);
         setIsAdmin(false);
-        setPopupPage('user-home');
         return;
       }
 
@@ -121,7 +117,6 @@ function App() {
             ? 'Loaded existing identity token from storage.'
             : currentStatus
           );
-          setPopupPage('user-home');
 
           void upsertOAuthUser(backendUrl, savedToken).catch((error) => {
             console.error('upsertOAuthUser failed during initialization:', error);
@@ -140,15 +135,13 @@ function App() {
           setOrganization(null);
           setOrgBlockedWebsites([]);
           setIsAdmin(false);
-          setPopupPage('user-home');
         }
       } catch (error) {
         console.error('initialize failed:', error);
         setStatus(error instanceof Error ? error.message : "Initialization failed");
-        setPopupPage('user-home');
       } finally {
         if (isMounted) {
-        setIsInitializing(false);
+          setIsInitializing(false);
         }
       }
     }
@@ -193,7 +186,6 @@ function App() {
 
       setToken(nextToken);
       setEmail(profileEmail);
-      setPopupPage('user-home');
       setStatus('Signed in with Google.');
 
       if(profileEmail) {
@@ -229,7 +221,6 @@ function App() {
     setOrganization(null);
     setOrgBlockedWebsites([]);
     setIsAdmin(false);
-    setPopupPage('user-home');
     setStatus('Signed out and token cleared.');
   }
 
@@ -270,11 +261,6 @@ function App() {
 
       if (!organization) {
         setStatus('Create an organization first.');
-        return;
-      }
-
-      if (!token) {
-        setStatus('Sign in first to edit the organization blocklist.');
         return;
       }
 
@@ -393,110 +379,106 @@ function App() {
     );
   }
 
-  if (popupPage === 'user-home') {
-    if (token) {
-      return (
-        <>
-          <h1>Task Focused</h1>
-          <div className="view-switch">
-            <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
-              Home
-            </button>
-            <button
-              className={view === 'blocked-websites' ? 'active' : ''}
-              onClick={() => setView('blocked-websites')}
-            >
-              Blocked websites
-            </button>
-            {organization ? (
-              <button
-                className={view === 'organization' ? 'active' : ''}
-                onClick={() => setView('organization')}
-              >
-                Organization
-              </button>
-            ) : null}
-          </div>
-          <div className="card">
-            {view === 'home' ? (
-              <HomePage
-                email={email}
-                token={token}
-                organizationNameInput={organizationNameInput}
-                onSignOut={signOut}
-                onOrganizationNameInputChange={setOrganizationNameInput}
-                onCreateOrganization={() => {
-                  void createOrganizationForCurrentUser();
-                }}
-              />
-            ) : view === 'blocked-websites' ? (
-              <PersonalBlockedWebsitesPage
-                websiteInput={personalWebsiteInput}
-                blockedWebsites={personalBlockedWebsites}
-                onInputChange={setPersonalWebsiteInput}
-                onAddWebsite={() => {
-                  void addPersonalBlockedWebsite();
-                }}
-                onRemoveWebsite={(website) => {
-                  void removePersonalBlockedWebsite(website);
-                }}
-              />
-            ) : !organization ? (
-              <>
-                <h2>Organization</h2>
-                <p>No organization yet. Create one from the Home screen.</p>
-              </>
-            ) : !isAdmin ? (
-              <>
-                <h2>Organization</h2>
-                <p>Organization: {organization.name}</p>
-                <p>Role: {role}</p>
-                <p>Only admins can view org blocked websites.</p>
-                <button className="leave-org-button" onClick={() => void leaveCurrentOrganization()}>
-                  Leave organization
-                </button>
-              </>
-            ) : (
-              <>
-                <h2>Organization</h2>
-                <p>Organization: {organization.name}</p>
-                <p>Role: {role}</p>
-                <BlockedWebsitesPage
-                  websiteInput={orgWebsiteInput}
-                  blockedWebsites={orgBlockedWebsites}
-                  canManage={true}
-                  organizationName={organization.name}
-                  onInputChange={setOrgWebsiteInput}
-                  onAddWebsite={() => {
-                    void addOrgBlockedWebsite();
-                  }}
-                  onRemoveWebsite={(website) => {
-                    void removeOrgBlockedWebsite(website);
-                  }}
-                />
-                <button className="leave-org-button" onClick={() => void leaveCurrentOrganization()}>
-                  Leave organization
-                </button>
-              </>
-            )}
-            <p>{status}</p>
-          </div>
-        </>
-      );
-    }
-
+  if (token) {
     return (
       <>
-        <h1>TaskFocused</h1>
-        <div className="card user-home-actions">
-          <button onClick={() => void signIn()}>Login</button>
+        <h1>Task Focused</h1>
+        <div className="view-switch">
+          <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
+            Home
+          </button>
+          <button
+            className={view === 'blocked-websites' ? 'active' : ''}
+            onClick={() => setView('blocked-websites')}
+          >
+            Blocked websites
+          </button>
+          {organization ? (
+            <button
+              className={view === 'organization' ? 'active' : ''}
+              onClick={() => setView('organization')}
+            >
+              Organization
+            </button>
+          ) : null}
+        </div>
+        <div className="card">
+          {view === 'home' ? (
+            <HomePage
+              email={email}
+              token={token}
+              organizationNameInput={organizationNameInput}
+              onSignOut={signOut}
+              onOrganizationNameInputChange={setOrganizationNameInput}
+              onCreateOrganization={() => {
+                void createOrganizationForCurrentUser();
+              }}
+            />
+          ) : view === 'blocked-websites' ? (
+            <PersonalBlockedWebsitesPage
+              websiteInput={personalWebsiteInput}
+              blockedWebsites={personalBlockedWebsites}
+              onInputChange={setPersonalWebsiteInput}
+              onAddWebsite={() => {
+                void addPersonalBlockedWebsite();
+              }}
+              onRemoveWebsite={(website) => {
+                void removePersonalBlockedWebsite(website);
+              }}
+            />
+          ) : !organization ? (
+            <>
+              <h2>Organization</h2>
+              <p>No organization yet. Create one from the Home screen.</p>
+            </>
+          ) : !isAdmin ? (
+            <>
+              <h2>Organization</h2>
+              <p>Organization: {organization.name}</p>
+              <p>Role: {role}</p>
+              <p>Only admins can view org blocked websites.</p>
+              <button className="leave-org-button" onClick={() => void leaveCurrentOrganization()}>
+                Leave organization
+              </button>
+            </>
+          ) : (
+            <>
+              <h2>Organization</h2>
+              <p>Organization: {organization.name}</p>
+              <p>Role: {role}</p>
+              <BlockedWebsitesPage
+                websiteInput={orgWebsiteInput}
+                blockedWebsites={orgBlockedWebsites}
+                canManage={true}
+                organizationName={organization.name}
+                onInputChange={setOrgWebsiteInput}
+                onAddWebsite={() => {
+                  void addOrgBlockedWebsite();
+                }}
+                onRemoveWebsite={(website) => {
+                  void removeOrgBlockedWebsite(website);
+                }}
+              />
+              <button className="leave-org-button" onClick={() => void leaveCurrentOrganization()}>
+                Leave organization
+              </button>
+            </>
+          )}
           <p>{status}</p>
         </div>
       </>
     );
   }
 
-  return null;
+  return (
+    <>
+      <h1>TaskFocused</h1>
+      <div className="card user-home-actions">
+        <button onClick={() => void signIn()}>Login</button>
+        <p>{status}</p>
+      </div>
+    </>
+  );
 }
 
 export default App;
