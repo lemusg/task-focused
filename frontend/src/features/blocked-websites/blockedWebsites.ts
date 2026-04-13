@@ -31,6 +31,10 @@ export function normalizeWebsite(input: string): string {
     throw new Error('Enter a valid website.');
   }
 
+  if (parsed.hostname !== 'localhost' && !parsed.hostname.includes('.')) {
+    throw new Error('Enter a valid website.');
+  }
+
   return parsed.hostname;
 }
 
