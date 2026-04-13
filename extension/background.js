@@ -2,6 +2,9 @@ const PERSONAL_BLOCKED_WEBSITES_KEY = 'personalBlockedWebsites';
 const ORG_BLOCKED_WEBSITES_KEY = 'orgBlockedWebsites';
 const DYNAMIC_RULE_ID_BASE = 1000;
 
+const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
+let syncInFlight = null;
+
 function normalizeHostname(input) {
   const trimmed = String(input ?? '').trim().toLowerCase();
   if (!trimmed) {
@@ -11,7 +14,21 @@ function normalizeHostname(input) {
   try {
     const withProtocol = trimmed.includes('://') ? trimmed : `https://${trimmed}`;
     const parsed = new URL(withProtocol);
-    return parsed.hostname || null;
+
+    if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+      return null;
+    }
+
+    const hostname = parsed.hostname?.trim().toLowerCase();
+    if (!hostname) {
+      return null;
+    }
+
+    if (hostname !== 'localhost' && !hostname.includes('.')) {
+      return null;
+    }
+
+    return hostname;
   } catch {
     return null;
   }
@@ -52,7 +69,7 @@ async function readCombinedBlocklists() {
   };
 }
 
-async function syncDynamicRules() {
+async function doSyncDynamicRules() {
   const { personal, org } = await readCombinedBlocklists();
   const combined = dedupeAndSort([...personal, ...org]);
 
@@ -71,10 +88,21 @@ async function syncDynamicRules() {
   });
 
   console.log('Synced blocked website rules', {
-    personalCount: personal.length,
-    orgCount: org.length,
-    combinedCount: combined.length,
+    personal,
+    org,
+    combinedremovedRuleIds: ruleIdsToRemove,
+    addedRuleIds: rulesToAdd.map((rule) => rule.id),
   });
+}
+
+function syncDynamicRules() {
+  if (!syncInFlight) {
+    syncInFlight = doSyncDynamicRules().finally(() => {
+      syncInFlight = null;
+    });
+  }
+
+  return syncInFlight;
 }
 
 async function initializeBlocking() {
@@ -101,7 +129,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 
   if (changes[PERSONAL_BLOCKED_WEBSITES_KEY] || changes[ORG_BLOCKED_WEBSITES_KEY]) {
-    void syncDynamicRules();
+    void syncDynamicRules().catch((error) => {
+      console.error('Failed to sync blocking rules after storage change', error);
+    });
   }
 });
 
