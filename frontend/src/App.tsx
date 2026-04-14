@@ -114,8 +114,8 @@ function App() {
           setToken(savedToken);
           setStatus((currentStatus) =>
             currentStatus === 'Ready'
-            ? 'Loaded existing identity token from storage.'
-            : currentStatus
+              ? 'Loaded existing identity token from storage.'
+              : currentStatus
           );
 
           void upsertOAuthUser(backendUrl, savedToken).catch((error) => {
@@ -138,7 +138,7 @@ function App() {
         }
       } catch (error) {
         console.error('initialize failed:', error);
-        setStatus(error instanceof Error ? error.message : "Initialization failed");
+        setStatus(error instanceof Error ? error.message : 'Initialization failed');
       } finally {
         if (isMounted) {
           setIsInitializing(false);
@@ -188,12 +188,16 @@ function App() {
       setEmail(profileEmail);
       setStatus('Signed in with Google.');
 
-      if(profileEmail) {
+      if (profileEmail) {
         void upsertOAuthUser(backendUrl, nextToken)
           .then(() => refreshOrganizationForUser(profileEmail, nextToken))
           .catch((error) => {
             console.error('upsertOAuthUser failed during signIn:', error);
-            setStatus(error instanceof Error ? error.message : 'Sign-in succeeded but failed to sync user with backend.');
+            setStatus(
+              error instanceof Error
+                ? error.message
+                : 'Sign-in succeeded but failed to sync user with backend.'
+            );
           });
       } else {
         setOrganization(null);
@@ -362,7 +366,6 @@ function App() {
       setStatus(message);
     }
   }
-
 
   useEffect(() => {
     void saveOrgBlockedWebsites(orgBlockedWebsites);

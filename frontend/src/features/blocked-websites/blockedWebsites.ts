@@ -86,8 +86,8 @@ export async function clearOrgBlockedWebsites() {
 
 export async function syncBlockingRules() {
   try {
-    await chromeApi?.runtime?.sendMessage?.({ type: 'SYNC_BLOCKING_RULES' });
+    await chromeApi?.runtime?.sendMessage?.({ type: 'RESCAN_BLOCKED_TABS' });
   } catch {
-    // Storage change listener in the background handles normal syncs.
+    // Storage change listener in the background handles normal rescans.
   }
 }
