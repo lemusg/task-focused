@@ -31,7 +31,16 @@ export function normalizeWebsite(input: string): string {
     throw new Error('Enter a valid website.');
   }
 
-  return parsed.hostname;
+  if (parsed.hostname !== 'localhost' && !parsed.hostname.includes('.')) {
+    throw new Error('Enter a valid website.');
+  }
+
+  // Strip www. so stored hostnames are consistent with what background.js canonicalizes.
+  const hostname = parsed.hostname.startsWith('www.')
+    ? parsed.hostname.slice(4)
+    : parsed.hostname;
+
+  return hostname;
 }
 
 function sanitizeWebsiteList(websites: unknown): string[] {
@@ -82,8 +91,8 @@ export async function clearOrgBlockedWebsites() {
 
 export async function syncBlockingRules() {
   try {
-    await chromeApi?.runtime?.sendMessage?.({ type: 'SYNC_BLOCKING_RULES' });
+    await chromeApi?.runtime?.sendMessage?.({ type: 'RESCAN_BLOCKED_TABS' });
   } catch {
-    // Storage change listener in the background handles normal syncs.
+    // Storage change listener in the background handles normal rescans.
   }
 }
