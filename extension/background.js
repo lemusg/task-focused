@@ -164,7 +164,7 @@ function buildBlockedPageUrl(blockedUrl, hostname, source) {
 
 // ─── Core enforcement ──────────────────────────────────────────────────────────
 
-// Returns the canonicalized blocked hostname if `url` matches a blocked entry,
+// Returns the canonicalized visited hostname if `url` matches a blocked entry,
 // null otherwise. Uses `canonicalizeHostname` directly since `parsed.hostname`
 // is already a clean hostname — no need to re-parse through `normalizeHostname`.
 async function getMatchedBlockedHostname(url) {
