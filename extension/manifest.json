@@ -13,7 +13,8 @@
     "identity",
     "identity.email",
     "storage",
-    "declarativeNetRequest"
+    "tabs",
+    "webNavigation"
   ],
   "oauth2": {
     "client_id": "458085931355-v3tqsu6jdh5uk1eeefnpsqovuvjksboq.apps.googleusercontent.com",
