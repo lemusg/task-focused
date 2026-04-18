@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Site Blocked – TaskFocused</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #232638;
+      --border: #2e3250;
+      --accent: #5b6af5;
+      --accent-dim: #3d4abf;
+      --text: #e8eaf6;
+      --text-muted: #8b90b8;
+      --red: #f56565;
+      --green: #48bb78;
+      --radius: 12px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .divider-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .header-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Blocked card */
+    .blocked-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .blocked-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 101, 101, 0.12);
+      border: 1px solid rgba(245, 101, 101, 0.3);
+      color: var(--red);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 999px;
+      width: fit-content;
+    }
+    .blocked-badge::before { content: "●"; font-size: 0.6rem; }
+    .blocked-hostname {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      word-break: break-all;
+    }
+    .blocked-url {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+    .blocked-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 8px;
+      width: fit-content;
+      cursor: pointer;
+      background: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .back-link:hover { border-color: var(--text-muted); color: var(--text); }
+
+    /* Chat */
+    .chat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .chat-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+    .messages {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-height: 260px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .msg {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .msg.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .avatar.ai { background: var(--accent-dim); color: #fff; }
+    .avatar.user { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+    .bubble {
+      max-width: 80%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+    .msg.ai .bubble {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+      color: var(--text);
+    }
+    .msg.user .bubble {
+      background: var(--accent);
+      border-top-right-radius: 4px;
+      color: #fff;
+    }
+
+    /* Typing indicator */
+    .typing .bubble {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+    }
+    .typing-dots {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 4px 2px;
+    }
+    .typing-dots span {
+      width: 6px; height: 6px;
+      background: var(--text-muted);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-5px); }
+    }
+
+    /* Allow button */
+    .allow-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .allow-btn:hover { opacity: 0.85; }
+    .allow-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Input */
+    .input-row {
+      display: flex;
+      gap: 10px;
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .msg-input {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: var(--font);
+      padding: 10px 14px;
+      resize: none;
+      outline: none;
+      transition: border-color 0.15s;
+      min-height: 42px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .msg-input:focus { border-color: var(--accent); }
+    .msg-input::placeholder { color: var(--text-muted); }
+    .send-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      align-self: flex-end;
+    }
+    .send-btn:hover { background: var(--accent-dim); }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .send-btn svg { width: 18px; height: 18px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <span class="logo">TaskFocused</span>
+      <span class="divider-dot"></span>
+      <span class="header-label">Access blocked</span>
+    </header>
+
+    <div class="blocked-card">
+      <span class="blocked-badge">Blocked</span>
+      <div class="blocked-hostname" id="blocked-hostname">—</div>
+      <div class="blocked-url" id="blocked-url"></div>
+      <p class="blocked-desc">
+        This site is on your blocked list. Chat with the AI below to make your case — if it agrees your reason is legitimate, it'll let you through for 5 minutes.
+      </p>
+      <button class="back-link" id="back-btn">&#8592; Go back</button>
+    </div>
+
+    <div class="chat-card">
+      <div class="chat-header">
+        <span class="ai-dot"></span>
+        TaskFocused AI
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="input-row">
+        <textarea
+          id="msg-input"
+          class="msg-input"
+          placeholder="Explain why you need to visit this site…"
+          rows="1"
+        ></textarea>
+        <button class="send-btn" id="send-btn" aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="blocked-page.js"></script>
+</body>
+</html>
