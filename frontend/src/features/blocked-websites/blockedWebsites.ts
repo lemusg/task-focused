@@ -35,10 +35,11 @@ export function normalizeWebsite(input: string): string {
     throw new Error('Enter a valid website.');
   }
 
-  // Strip www. so stored hostnames are consistent with what background.js canonicalizes.
-  const hostname = parsed.hostname.startsWith('www.')
-    ? parsed.hostname.slice(4)
-    : parsed.hostname;
+  // Canonicalize hostnames the same way as background.js for consistent storage and deduping.
+  const hostnameWithoutTrailingDot = parsed.hostname.replace(/\.+$/, '');
+  const hostname = hostnameWithoutTrailingDot.startsWith('www.')
+    ? hostnameWithoutTrailingDot.slice(4)
+    : hostnameWithoutTrailingDot;
 
   return hostname;
 }
