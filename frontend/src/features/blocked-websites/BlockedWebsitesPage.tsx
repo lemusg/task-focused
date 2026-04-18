@@ -28,7 +28,7 @@ export function BlockedWebsitesPage({
   return (
     <>
       <h2>Org blocked websites</h2>
-      <p>{organizationName ? `Organization: ${organizationName}` : 'No organization yet.'}</p>
+      <p>{organizationName ? `` : 'No organization yet.'}</p>
       {!canManage ? <p>Only admins can edit this blocklist.</p> : null}
       <div className="website-form">
         <input

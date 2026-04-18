@@ -2,18 +2,24 @@ type HomePageProps = {
   email: string;
   token: string;
   organizationNameInput: string;
+  joinOrganizationIdInput: string;
   onSignOut: () => void;
   onOrganizationNameInputChange: (value: string) => void;
+  onJoinOrganizationIdInputChange: (value: string) => void;
   onCreateOrganization: () => void;
+  onJoinOrganization: () => void;
 };
 
 export function HomePage({
   email,
   token,
   organizationNameInput,
+  joinOrganizationIdInput,
   onSignOut,
   onOrganizationNameInputChange,
+  onJoinOrganizationIdInputChange,
   onCreateOrganization,
+  onJoinOrganization,
 }: HomePageProps) {
   return (
     <>
@@ -26,6 +32,15 @@ export function HomePage({
           onChange={(event) => onOrganizationNameInputChange(event.target.value)}
         />
         <button onClick={onCreateOrganization}>Create organization</button>
+      </div>
+      <div className="website-form">
+        <input
+          type="text"
+          value={joinOrganizationIdInput}
+          placeholder="Organization ID"
+          onChange={(event) => onJoinOrganizationIdInputChange(event.target.value)}
+        />
+        <button onClick={onJoinOrganization}>Join organization</button>
       </div>
       <p>{email ? `Email: ${email}` : 'No profile email available'}</p>
       <p>{token ? `Token saved (${token.slice(0, 14)}...)` : 'No token saved yet'}</p>

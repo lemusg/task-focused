@@ -23,6 +23,7 @@ import { HomePage } from './features/home/HomePage';
 import {
   addWebsiteToBlocklist,
   createOrganization,
+  joinOrganization,
   leaveOrganization,
   loadOrganizationByUser,
   removeWebsiteFromBlocklist,
@@ -49,6 +50,7 @@ function App() {
   const [token, setToken] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [organizationNameInput, setOrganizationNameInput] = useState<string>('');
+  const [joinOrganizationIdInput, setJoinOrganizationIdInput] = useState<string>('');
   const [organization, setOrganization] = useState<OrganizationData | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [personalWebsiteInput, setPersonalWebsiteInput] = useState<string>('');
@@ -222,6 +224,8 @@ function App() {
     await clearOrgBlockedWebsites();
     setToken('');
     setEmail('');
+    setOrganizationNameInput('');
+    setJoinOrganizationIdInput('');
     setOrganization(null);
     setOrgBlockedWebsites([]);
     setIsAdmin(false);
@@ -334,9 +338,37 @@ function App() {
       setIsAdmin(true);
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
       setOrganizationNameInput('');
+      setJoinOrganizationIdInput('');
       setStatus(`Organization ${payload.organization.name} created.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not create organization.';
+      setStatus(message);
+    }
+  }
+
+
+  async function joinOrganizationForCurrentUser() {
+    const nextOrganizationId = joinOrganizationIdInput.trim();
+    if (!token) {
+      setStatus('Sign in first to join an organization.');
+      return;
+    }
+
+    if (!nextOrganizationId) {
+      setStatus('Enter an organization ID.');
+      return;
+    }
+
+    try {
+      const payload = await joinOrganization(backendUrl, token, nextOrganizationId);
+      setOrganization(payload.organization);
+      setIsAdmin(payload.isAdmin);
+      setOrgBlockedWebsites(payload.organization.blockedWebsites);
+      setJoinOrganizationIdInput('');
+      setView('organization');
+      setStatus(`Joined organization ${payload.organization.name} as a member.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not join organization.';
       setStatus(message);
     }
   }
@@ -358,6 +390,7 @@ function App() {
       setIsAdmin(false);
       setOrgBlockedWebsites([]);
       setOrgWebsiteInput('');
+      setJoinOrganizationIdInput('');
       await clearOrgBlockedWebsites();
       setView('home');
       setStatus(payload.message ?? 'Left organization.');
@@ -411,10 +444,15 @@ function App() {
               email={email}
               token={token}
               organizationNameInput={organizationNameInput}
+              joinOrganizationIdInput={joinOrganizationIdInput}
               onSignOut={signOut}
               onOrganizationNameInputChange={setOrganizationNameInput}
+              onJoinOrganizationIdInputChange={setJoinOrganizationIdInput}
               onCreateOrganization={() => {
                 void createOrganizationForCurrentUser();
+              }}
+              onJoinOrganization={() => {
+                void joinOrganizationForCurrentUser();
               }}
             />
           ) : view === 'blocked-websites' ? (
@@ -438,8 +476,21 @@ function App() {
             <>
               <h2>Organization</h2>
               <p>Organization: {organization.name}</p>
+              <p>Org ID: {organization.id}</p>
               <p>Role: {role}</p>
-              <p>Only admins can view org blocked websites.</p>
+              <BlockedWebsitesPage
+                websiteInput={orgWebsiteInput}
+                blockedWebsites={orgBlockedWebsites}
+                canManage={false}
+                organizationName={organization.name}
+                onInputChange={setOrgWebsiteInput}
+                onAddWebsite={() => {
+                  void addOrgBlockedWebsite();
+                }}
+                onRemoveWebsite={(website) => {
+                  void removeOrgBlockedWebsite(website);
+                }}
+              />
               <button className="leave-org-button" onClick={() => void leaveCurrentOrganization()}>
                 Leave organization
               </button>
@@ -448,6 +499,7 @@ function App() {
             <>
               <h2>Organization</h2>
               <p>Organization: {organization.name}</p>
+              <p>Org ID: {organization.id}</p>
               <p>Role: {role}</p>
               <BlockedWebsitesPage
                 websiteInput={orgWebsiteInput}
