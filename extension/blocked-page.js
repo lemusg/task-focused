@@ -398,10 +398,9 @@ inputEl.addEventListener('input', () => {
 });
 
 // Seed the conversation with the initial prompt shown to the user.
-appendMessage(
-  'ai',
-  `You're trying to visit ${blockedHostname}, which is on your blocked list. What's your reason for needing access right now?`
-);
+const initialAiMessage = `You're trying to visit ${blockedHostname}, which is on your blocked list. What's your reason for needing access right now?`;
+appendMessage('ai', initialAiMessage);
+conversationHistory.push({ role: 'assistant', content: initialAiMessage });
 
 void enforceLlmCooldownUi();
 void hydrateOrgPolicyLine();
