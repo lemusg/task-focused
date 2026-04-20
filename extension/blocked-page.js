@@ -69,10 +69,16 @@ async function enforceLlmCooldownUi() {
     return true;
   }
 
+  // Cooldown ended: reset back to 3 fresh attempts.
+  if (cooldownUntil && cooldownUntil <= now) {
+    await setLlmLimitState({ [LLM_REQUEST_COUNT_KEY]: 0, [LLM_COOLDOWN_UNTIL_KEY]: 0 });
+  }
+
   // Not in cooldown.
   inputEl.disabled = false;
   sendBtn.disabled = false;
-  const attemptsLeft = Math.max(0, LLM_MAX_REQUESTS - count);
+  const refreshed = cooldownUntil && cooldownUntil <= now ? 0 : count;
+  const attemptsLeft = Math.max(0, LLM_MAX_REQUESTS - refreshed);
   inputEl.placeholder =
     attemptsLeft <= 1
       ? 'Explain why you need to visit this site… (last attempt)'
