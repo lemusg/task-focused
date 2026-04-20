@@ -130,6 +130,60 @@ router.get('/organizations/by-user/:userId', async (req, res) => {
   }
 });
 
+router.post('/organizations/join', async (req, res) => {
+  try {
+    await connectDB();
+    const userId = getAuthenticatedUserId(req);
+    const organizationId = String(req.body.organizationId ?? '').trim();
+
+    if (!organizationId) {
+      res.status(400).json({ message: 'organizationId is required.' });
+      return;
+    }
+
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      res.status(404).json({ message: 'Organization not found.' });
+      return;
+    }
+
+    const existingUser = await User.findOne({ userId });
+    if (existingUser?.organization) {
+      res.status(400).json({ message: 'User already belongs to an organization.' });
+      return;
+    }
+
+    if (!includesUser(organization.members, userId)) {
+      organization.members.push(userId);
+      await organization.save();
+    }
+
+    if (existingUser) {
+      existingUser.organization = String(organization._id);
+      existingUser.role = 'member';
+      await existingUser.save();
+    } else {
+      await User.create({
+        userId,
+        role: 'member',
+        organization: String(organization._id),
+      });
+    }
+
+    res.json({
+      message: 'Joined organization.',
+      organization: {
+        id: String(organization._id),
+        name: organization.name,
+        blockedWebsites: organization.blockedWebsites,
+      },
+      isAdmin: false,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to join organization.', error });
+  }
+});
+
 router.post('/organizations/:organizationId/blocklist', async (req, res) => {
   try {
     await connectDB();

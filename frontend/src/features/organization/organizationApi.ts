@@ -15,6 +15,12 @@ type CreateOrganizationResponse = {
   message?: string;
 };
 
+type JoinOrganizationResponse = {
+  organization: OrganizationData;
+  isAdmin: boolean;
+  message?: string;
+};
+
 type BlocklistResponse = {
   blockedWebsites: string[];
   message?: string;
@@ -75,6 +81,20 @@ export async function createOrganization(
   });
 
   return parseJson<CreateOrganizationResponse>(res);
+}
+
+export async function joinOrganization(
+  backendUrl: string,
+  authToken: string,
+  organizationId: string
+) {
+  const res = await fetch(`${backendUrl}/api/organizations/join`, {
+    method: 'POST',
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ organizationId }),
+  });
+
+  return parseJson<JoinOrganizationResponse>(res);
 }
 
 export async function addWebsiteToBlocklist(
