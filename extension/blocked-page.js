@@ -21,9 +21,15 @@ document.getElementById('back-btn').addEventListener('click', () => history.back
 const messagesEl = document.getElementById('messages');
 const inputEl = document.getElementById('msg-input');
 const sendBtn = document.getElementById('send-btn');
+const orgPolicyLineEl = document.getElementById('org-policy-line');
 
 // Keep local chat history so every request includes prior turns.
 const conversationHistory = [];
+
+const ORG_ID_KEY = 'organizationId';
+const ORG_IS_ADMIN_KEY = 'organizationIsAdmin';
+const ALLOW_DURATION_MINUTES_KEY = 'allowDurationMinutes';
+const ORG_ALLOW_DURATION_MINUTES_KEY = 'organizationAllowDurationMinutes';
 
 const LLM_MAX_REQUESTS = 3;
 const LLM_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
@@ -115,12 +121,19 @@ function appendMessage(role, text, allowThrough = false) {
 
   // Only AI approvals get the button that grants temporary access.
   if (allowThrough) {
+    const row = document.createElement('div');
+    row.className = 'allow-row';
+
     const btn = document.createElement('button');
     btn.className = 'allow-btn';
     btn.textContent = `Visit ${blockedHostname}`;
+
+    // Only org admins and users without an org can choose a custom duration.
+    void hydrateAllowControls(row, btn);
+
     btn.addEventListener('click', () => void grantAccessAndNavigate(btn));
-    bubble.appendChild(document.createElement('br'));
-    bubble.appendChild(btn);
+    row.appendChild(btn);
+    bubble.appendChild(row);
   }
 
   wrap.appendChild(avatar);
@@ -154,15 +167,105 @@ function removeTyping() {
   document.getElementById('typing-indicator')?.remove();
 }
 
+async function canCustomizeAllowDuration() {
+  try {
+    const data = await chrome.storage.local.get([ORG_ID_KEY, ORG_IS_ADMIN_KEY]);
+    const orgId = typeof data[ORG_ID_KEY] === 'string' ? data[ORG_ID_KEY] : '';
+    const isAdmin = Boolean(data[ORG_IS_ADMIN_KEY]);
+    // Only users without an org can choose a per-visit duration.
+    // Org admins define the org duration in the popup; members inherit it.
+    return !orgId;
+  } catch {
+    return false;
+  }
+}
+
+async function getOrgAllowDurationMinutes() {
+  const data = await chrome.storage.local.get([ORG_ALLOW_DURATION_MINUTES_KEY]);
+  const value = data[ORG_ALLOW_DURATION_MINUTES_KEY];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 5;
+}
+
+async function hydrateOrgPolicyLine() {
+  if (!orgPolicyLineEl) return;
+
+  try {
+    const data = await chrome.storage.local.get([ORG_ID_KEY]);
+    const orgId = typeof data[ORG_ID_KEY] === 'string' ? data[ORG_ID_KEY] : '';
+    if (!orgId) {
+      orgPolicyLineEl.style.display = 'none';
+      return;
+    }
+
+    const minutes = await getOrgAllowDurationMinutes();
+    orgPolicyLineEl.textContent = `Org policy: temporary access is ${minutes} minutes.`;
+    orgPolicyLineEl.style.display = '';
+  } catch {
+    orgPolicyLineEl.style.display = 'none';
+  }
+}
+
+async function getSavedAllowDurationMinutes() {
+  const data = await chrome.storage.local.get([ALLOW_DURATION_MINUTES_KEY]);
+  const value = data[ALLOW_DURATION_MINUTES_KEY];
+  return typeof value === 'number' && Number.isFinite(value) ? value : 5;
+}
+
+async function hydrateAllowControls(row, btn) {
+  // If the user is in an org, always use the org-wide duration (no selector).
+  const orgData = await chrome.storage.local.get([ORG_ID_KEY]);
+  const orgId = typeof orgData[ORG_ID_KEY] === 'string' ? orgData[ORG_ID_KEY] : '';
+  if (orgId) {
+    const minutes = await getOrgAllowDurationMinutes();
+    btn.dataset.durationMinutes = String(minutes);
+    btn.textContent = `Visit ${blockedHostname} (${minutes} min)`;
+    return;
+  }
+
+  if (!(await canCustomizeAllowDuration())) {
+    btn.dataset.durationMinutes = '5';
+    return;
+  }
+
+  const select = document.createElement('select');
+  select.className = 'duration-select';
+  const options = [5, 10, 15, 30, 60];
+  for (const minutes of options) {
+    const opt = document.createElement('option');
+    opt.value = String(minutes);
+    opt.textContent = `Allow for ${minutes} min`;
+    select.appendChild(opt);
+  }
+
+  const saved = await getSavedAllowDurationMinutes();
+  if (options.includes(saved)) {
+    select.value = String(saved);
+  }
+
+  btn.dataset.durationMinutes = select.value;
+  btn.textContent = `Visit ${blockedHostname} (${select.value} min)`;
+  select.addEventListener('change', () => {
+    btn.dataset.durationMinutes = select.value;
+    btn.textContent = `Visit ${blockedHostname} (${select.value} min)`;
+    void chrome.storage.local.set({ [ALLOW_DURATION_MINUTES_KEY]: Number(select.value) });
+  });
+
+  row.appendChild(select);
+}
+
 // Ask the background worker for a temporary allow, then continue to the site.
 async function grantAccessAndNavigate(btn) {
   btn.disabled = true;
   btn.textContent = 'Allowing…';
 
+  const minutes = Number(btn.dataset.durationMinutes ?? '5');
+  const durationMs = Number.isFinite(minutes) ? minutes * 60 * 1000 : undefined;
+
   try {
     await chrome.runtime.sendMessage({
       type: 'ALLOW_TEMPORARILY',
       hostname: blockedHostname,
+      ...(typeof durationMs === 'number' ? { durationMs } : {}),
     });
   } catch {
     // If the background worker is unavailable, still try the navigation.
@@ -301,4 +404,5 @@ appendMessage(
 );
 
 void enforceLlmCooldownUi();
+void hydrateOrgPolicyLine();
 inputEl.focus();

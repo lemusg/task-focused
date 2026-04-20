@@ -40,6 +40,18 @@ function normalizeWebsite(input: string): string {
   return parsed.hostname;
 }
 
+function clampAllowDurationMinutes(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(String(value ?? ''));
+  if (!Number.isFinite(parsed)) {
+    throw new Error('allowDurationMinutes must be a number.');
+  }
+  const minutes = Math.floor(parsed);
+  if (minutes < 1 || minutes > 60) {
+    throw new Error('allowDurationMinutes must be between 1 and 60.');
+  }
+  return minutes;
+}
+
 // Create an organization and make the current user its first admin.
 router.post('/organizations', async (req, res) => {
   try {
@@ -72,6 +84,7 @@ router.post('/organizations', async (req, res) => {
       admins: [userId],
       members: [userId],
       blockedWebsites: [],
+      allowDurationMinutes: 5,
     });
 
     // Update an existing user document when possible, otherwise create one.
@@ -95,6 +108,7 @@ router.post('/organizations', async (req, res) => {
         admins: organization.admins,
         members: organization.members,
         blockedWebsites: organization.blockedWebsites,
+        allowDurationMinutes: organization.allowDurationMinutes ?? 5,
       },
       user: {
         userId: user.userId,
@@ -136,6 +150,7 @@ router.get('/organizations/by-user/:userId', async (req, res) => {
         id: String(organization._id),
         name: organization.name,
         blockedWebsites: organization.blockedWebsites,
+        allowDurationMinutes: organization.allowDurationMinutes ?? 5,
       },
       isAdmin: includesUser(organization.admins, userId),
     });
@@ -193,11 +208,48 @@ router.post('/organizations/join', async (req, res) => {
         id: String(organization._id),
         name: organization.name,
         blockedWebsites: organization.blockedWebsites,
+        allowDurationMinutes: organization.allowDurationMinutes ?? 5,
       },
       isAdmin: false,
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to join organization.', error });
+  }
+});
+
+// Update the org-wide temporary allow duration.
+router.post('/organizations/:organizationId/allow-duration', async (req, res) => {
+  try {
+    await connectDB();
+    const organizationId = String(req.params.organizationId ?? '').trim();
+    const userId = getAuthenticatedUserId(req);
+    if (!organizationId) {
+      res.status(400).json({ message: 'organizationId is required.' });
+      return;
+    }
+
+    const organization = await Organization.findById(organizationId);
+    if (!organization) {
+      res.status(404).json({ message: 'Organization not found.' });
+      return;
+    }
+
+    if (!includesUser(organization.admins, userId)) {
+      res.status(403).json({ message: 'Only organization admins can update allow duration.' });
+      return;
+    }
+
+    const allowDurationMinutes = clampAllowDurationMinutes(req.body.allowDurationMinutes);
+    organization.allowDurationMinutes = allowDurationMinutes;
+    await organization.save();
+
+    res.json({
+      message: 'Allow duration updated.',
+      allowDurationMinutes: organization.allowDurationMinutes ?? 5,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to update allow duration.';
+    res.status(500).json({ message, error });
   }
 });
 

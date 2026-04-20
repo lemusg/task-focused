@@ -43,6 +43,9 @@ type ChromeApi = {
 
 const AUTH_TOKEN_KEY = 'authToken';
 const USER_ID_KEY = 'userId';
+const ORG_ID_KEY = 'organizationId';
+const ORG_IS_ADMIN_KEY = 'organizationIsAdmin';
+const ORG_ALLOW_DURATION_MINUTES_KEY = 'organizationAllowDurationMinutes';
 const chromeApi = (globalThis as { chrome?: ChromeApi }).chrome;
 
 // Save the OAuth token in extension storage for later popup sessions.
@@ -79,6 +82,32 @@ export async function clearSavedUserId() {
   if (chromeApi?.storage?.local) {
     await chromeApi.storage.local.remove(USER_ID_KEY);
   }
+}
+
+export async function saveOrganizationContext(
+  options: { organizationId: string; isAdmin: boolean; allowDurationMinutes?: number } | null
+) {
+  if (!chromeApi?.storage?.local) {
+    return;
+  }
+
+  if (!options) {
+    await chromeApi.storage.local.set({
+      [ORG_ID_KEY]: '',
+      [ORG_IS_ADMIN_KEY]: false,
+      [ORG_ALLOW_DURATION_MINUTES_KEY]: 5,
+    });
+    return;
+  }
+
+  await chromeApi.storage.local.set({
+    [ORG_ID_KEY]: String(options.organizationId ?? '').trim(),
+    [ORG_IS_ADMIN_KEY]: Boolean(options.isAdmin),
+    [ORG_ALLOW_DURATION_MINUTES_KEY]:
+      typeof options.allowDurationMinutes === 'number' && Number.isFinite(options.allowDurationMinutes)
+        ? options.allowDurationMinutes
+        : 5,
+  });
 }
 
 // Read the OAuth client id directly from the extension manifest.

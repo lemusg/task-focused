@@ -2,6 +2,7 @@ export type OrganizationData = {
   id: string;
   name: string;
   blockedWebsites: string[];
+  allowDurationMinutes?: number;
 };
 
 type OrganizationByUserResponse = {
@@ -27,6 +28,11 @@ type BlocklistResponse = {
 };
 
 type LeaveOrganizationResponse = {
+  message?: string;
+};
+
+type UpdateAllowDurationResponse = {
+  allowDurationMinutes: number;
   message?: string;
 };
 
@@ -148,4 +154,19 @@ export async function leaveOrganization(
   });
 
   return parseJson<LeaveOrganizationResponse>(res);
+}
+
+export async function updateOrganizationAllowDuration(
+  backendUrl: string,
+  organizationId: string,
+  authToken: string,
+  allowDurationMinutes: number
+) {
+  const res = await fetch(`${backendUrl}/api/organizations/${organizationId}/allow-duration`, {
+    method: 'POST',
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ allowDurationMinutes }),
+  });
+
+  return parseJson<UpdateAllowDurationResponse>(res);
 }

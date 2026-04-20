@@ -243,6 +243,28 @@
     .allow-btn:hover { opacity: 0.85; }
     .allow-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    .allow-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .duration-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    .duration-select:focus {
+      border-color: var(--accent);
+    }
+
     /* Message composer pinned to the bottom of the chat card. */
     .input-row {
       display: flex;
@@ -304,8 +326,9 @@
       <div class="blocked-hostname" id="blocked-hostname">—</div>
       <div class="blocked-url" id="blocked-url"></div>
       <p class="blocked-desc">
-        This site is on your blocked list. Chat with the AI below to make your case — if it agrees your reason is legitimate, it'll let you through for 5 minutes.
+        This site is on your blocked list. Chat with the AI below to make your case — if it agrees your reason is legitimate, it'll let you through temporarily.
       </p>
+      <p class="blocked-desc" id="org-policy-line" style="display:none;"></p>
       <button class="back-link" id="back-btn">&#8592; Go back</button>
     </div>
 

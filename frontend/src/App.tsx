@@ -19,6 +19,7 @@ import {
   getProfileEmail,
   loadSavedToken,
   removeCachedToken,
+  saveOrganizationContext,
   saveUserId,
   saveToken,
 } from './features/auth/auth';
@@ -30,6 +31,7 @@ import {
   leaveOrganization,
   loadOrganizationByUser,
   removeWebsiteFromBlocklist,
+  updateOrganizationAllowDuration,
   type OrganizationData,
 } from './features/organization/organizationApi';
 import { upsertOAuthUser } from './features/users/usersApi';
@@ -60,6 +62,7 @@ function App() {
   const [joinOrganizationIdInput, setJoinOrganizationIdInput] = useState<string>('');
   const [organization, setOrganization] = useState<OrganizationData | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [organizationAllowDurationMinutes, setOrganizationAllowDurationMinutes] = useState<number>(5);
 
   // Personal and org blocklist input state.
   const [personalWebsiteInput, setPersonalWebsiteInput] = useState<string>('');
@@ -74,6 +77,7 @@ function App() {
       setOrganization(null);
       setOrgBlockedWebsites([]);
       setIsAdmin(false);
+      void saveOrganizationContext(null);
       return;
     }
 
@@ -83,12 +87,20 @@ function App() {
         setOrganization(null);
         setOrgBlockedWebsites([]);
         setIsAdmin(false);
+        void saveOrganizationContext(null);
         return;
       }
 
       setOrganization(payload.organization);
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
       setIsAdmin(payload.isAdmin);
+      const allowDurationMinutes = payload.organization.allowDurationMinutes ?? 5;
+      setOrganizationAllowDurationMinutes(allowDurationMinutes);
+      void saveOrganizationContext({
+        organizationId: payload.organization.id,
+        isAdmin: payload.isAdmin,
+        allowDurationMinutes,
+      });
     } catch (error) {
       console.error('Failed to load organization:', error);
     }
@@ -224,6 +236,7 @@ function App() {
     await clearSavedToken();
     await clearSavedUserId();
     await clearOrgBlockedWebsites();
+    await saveOrganizationContext(null);
     setToken('');
     setEmail('');
     setOrganizationNameInput('');
@@ -327,6 +340,13 @@ function App() {
       setOrganization(payload.organization);
       setIsAdmin(true);
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
+      const allowDurationMinutes = payload.organization.allowDurationMinutes ?? 5;
+      setOrganizationAllowDurationMinutes(allowDurationMinutes);
+      await saveOrganizationContext({
+        organizationId: payload.organization.id,
+        isAdmin: true,
+        allowDurationMinutes,
+      });
       setOrganizationNameInput('');
       setJoinOrganizationIdInput('');
     } catch (error) {
@@ -350,10 +370,40 @@ function App() {
       setOrganization(payload.organization);
       setIsAdmin(payload.isAdmin);
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
+      const allowDurationMinutes = payload.organization.allowDurationMinutes ?? 5;
+      setOrganizationAllowDurationMinutes(allowDurationMinutes);
+      await saveOrganizationContext({
+        organizationId: payload.organization.id,
+        isAdmin: payload.isAdmin,
+        allowDurationMinutes,
+      });
       setJoinOrganizationIdInput('');
       setView('organization');
     } catch (error) {
       console.error('Could not join organization:', error);
+    }
+  }
+
+  async function updateOrgAllowDuration(minutes: number) {
+    if (!token || !organization || !isAdmin) {
+      return;
+    }
+
+    if (![5, 10, 15, 30, 60].includes(minutes)) {
+      console.error('Invalid allow duration minutes:', minutes);
+      return;
+    }
+
+    try {
+      const payload = await updateOrganizationAllowDuration(backendUrl, organization.id, token, minutes);
+      setOrganizationAllowDurationMinutes(payload.allowDurationMinutes);
+      await saveOrganizationContext({
+        organizationId: organization.id,
+        isAdmin: true,
+        allowDurationMinutes: payload.allowDurationMinutes,
+      });
+    } catch (error) {
+      console.error('Could not update org allow duration:', error);
     }
   }
 
@@ -376,6 +426,7 @@ function App() {
       setOrgWebsiteInput('');
       setJoinOrganizationIdInput('');
       await clearOrgBlockedWebsites();
+      await saveOrganizationContext(null);
       setView('home');
     } catch (error) {
       console.error('Could not leave organization:', error);
@@ -482,6 +533,7 @@ function App() {
               <p>Organization: {organization.name}</p>
               <p>Org ID: {organization.id}</p>
               <p>Role: {role}</p>
+              <p>Temporary allow duration: {organizationAllowDurationMinutes} minutes</p>
               <BlockedWebsitesPage
                 websiteInput={orgWebsiteInput}
                 blockedWebsites={orgBlockedWebsites}
@@ -505,6 +557,23 @@ function App() {
               <p>Organization: {organization.name}</p>
               <p>Org ID: {organization.id}</p>
               <p>Role: {role}</p>
+              <div className="website-form">
+                <h2>Temporary Allow Duration</h2>
+                <select
+                  aria-label="Temporary Allow Duration"
+                  value={organizationAllowDurationMinutes}
+                  onChange={(event) => {
+                    const nextMinutes = Number(event.target.value);
+                    void updateOrgAllowDuration(nextMinutes);
+                  }}
+                >
+                  {[5, 10, 15, 30, 60].map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {minutes} minutes
+                    </option>
+                  ))}
+                </select>
+              </div>
               <BlockedWebsitesPage
                 websiteInput={orgWebsiteInput}
                 blockedWebsites={orgBlockedWebsites}

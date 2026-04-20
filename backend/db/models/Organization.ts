@@ -14,6 +14,9 @@ const organizationSchema = new mongoose.Schema(
 
     // The backend stores blocked sites as normalized hostnames.
     blockedWebsites: [{ type: String, default: [] }],
+
+    // How long (in minutes) a temporary allow lasts for org members.
+    allowDurationMinutes: { type: Number, default: 5, min: 1, max: 60 },
   },
   { timestamps: true }
 );
