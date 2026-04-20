@@ -30,6 +30,7 @@ type LeaveOrganizationResponse = {
   message?: string;
 };
 
+// Parse JSON once and convert non-2xx responses into thrown errors.
 async function parseJson<T>(res: Response): Promise<T> {
   let data: T;
   try {
@@ -46,6 +47,7 @@ async function parseJson<T>(res: Response): Promise<T> {
   return data;
 }
 
+// Build the common JSON + bearer token headers for protected endpoints.
 function authHeaders(authToken: string) {
   return {
     'Content-Type': 'application/json',
@@ -53,6 +55,7 @@ function authHeaders(authToken: string) {
   };
 }
 
+// Load the authenticated user's current organization, if any.
 export async function loadOrganizationByUser(
   backendUrl: string,
   userId: string,
@@ -62,6 +65,7 @@ export async function loadOrganizationByUser(
     headers: { Authorization: `Bearer ${authToken}` },
   });
 
+  // A 404 here means the user simply has no org yet.
   if (res.status === 404) {
     return null;
   }
@@ -69,6 +73,7 @@ export async function loadOrganizationByUser(
   return parseJson<OrganizationByUserResponse>(res);
 }
 
+// Create a new organization owned by the current user.
 export async function createOrganization(
   backendUrl: string,
   authToken: string,
@@ -83,6 +88,7 @@ export async function createOrganization(
   return parseJson<CreateOrganizationResponse>(res);
 }
 
+// Join an existing organization by id.
 export async function joinOrganization(
   backendUrl: string,
   authToken: string,
@@ -97,6 +103,7 @@ export async function joinOrganization(
   return parseJson<JoinOrganizationResponse>(res);
 }
 
+// Add a hostname to the org blocklist.
 export async function addWebsiteToBlocklist(
   backendUrl: string,
   organizationId: string,
@@ -112,6 +119,7 @@ export async function addWebsiteToBlocklist(
   return parseJson<BlocklistResponse>(res);
 }
 
+// Remove a hostname from the org blocklist.
 export async function removeWebsiteFromBlocklist(
   backendUrl: string,
   organizationId: string,
@@ -127,6 +135,7 @@ export async function removeWebsiteFromBlocklist(
   return parseJson<BlocklistResponse>(res);
 }
 
+// Leave the current organization and let the backend clean up membership.
 export async function leaveOrganization(
   backendUrl: string,
   organizationId: string,

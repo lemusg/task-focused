@@ -36,6 +36,7 @@ type View = 'home' | 'blocked-websites' | 'organization';
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 const authDebugLoggingEnabled = import.meta.env.DEV;
 
+// Only print auth debug logs during local development.
 function debugAuthLog(message?: unknown, ...optionalParams: unknown[]) {
   if (!authDebugLoggingEnabled) {
     return;
@@ -45,21 +46,29 @@ function debugAuthLog(message?: unknown, ...optionalParams: unknown[]) {
 }
 
 function App() {
+  // Core popup state.
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [view, setView] = useState<View>('home');
   const [token, setToken] = useState<string>('');
   const [email, setEmail] = useState<string>('');
+
+  // Organization form state.
   const [organizationNameInput, setOrganizationNameInput] = useState<string>('');
   const [joinOrganizationIdInput, setJoinOrganizationIdInput] = useState<string>('');
   const [organization, setOrganization] = useState<OrganizationData | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  // Personal and org blocklist input state.
   const [personalWebsiteInput, setPersonalWebsiteInput] = useState<string>('');
   const [personalBlockedWebsites, setPersonalBlockedWebsites] = useState<string[]>([]);
   const [orgWebsiteInput, setOrgWebsiteInput] = useState<string>('');
   const [orgBlockedWebsites, setOrgBlockedWebsites] = useState<string[]>([]);
+
+  // One shared status line keeps popup feedback simple.
   const [status, setStatus] = useState<string>('Ready');
   const role = isAdmin ? 'admin' : 'member';
 
+  // Refresh org membership and role for the signed-in user.
   async function refreshOrganizationForUser(userId: string, authToken: string) {
     if (!userId || !authToken) {
       setOrganization(null);
@@ -86,6 +95,7 @@ function App() {
     }
   }
 
+  // Initial load pulls saved auth and both locally cached blocklists.
   useEffect(() => {
     let isMounted = true;
 
@@ -104,6 +114,7 @@ function App() {
           console.error('getProfileEmail failed during initialization:', error);
         }
 
+        // Stop if the popup unmounted before the async work completed.
         if (!isMounted) {
           return;
         }
@@ -120,6 +131,7 @@ function App() {
               : currentStatus
           );
 
+          // Keep the backend user row in sync with the saved browser token.
           void upsertOAuthUser(backendUrl, savedToken).catch((error) => {
             console.error('upsertOAuthUser failed during initialization:', error);
           });
@@ -154,6 +166,7 @@ function App() {
     };
   }, []);
 
+  // Start the Google OAuth flow and then hydrate backend/user state.
   async function signIn() {
     try {
       const clientId = getOAuthClientId();
@@ -213,6 +226,7 @@ function App() {
     }
   }
 
+  // Clear local auth state and drop any org blocklist cached in storage.
   async function signOut() {
     if (!token) {
       setStatus('No active token.');
@@ -232,6 +246,7 @@ function App() {
     setStatus('Signed out and token cleared.');
   }
 
+  // Add a site to the browser-only personal blocklist.
   async function addPersonalBlockedWebsite() {
     try {
       const normalizedWebsite = normalizeWebsite(personalWebsiteInput);
@@ -253,6 +268,7 @@ function App() {
     }
   }
 
+  // Remove a site from the browser-only personal blocklist.
   async function removePersonalBlockedWebsite(website: string) {
     const nextWebsites = personalBlockedWebsites.filter((item) => item !== website);
     await savePersonalBlockedWebsites(nextWebsites);
@@ -260,6 +276,7 @@ function App() {
     setStatus(`Removed ${website} from personal blocked websites.`);
   }
 
+  // Add a site to the shared org blocklist through the backend.
   async function addOrgBlockedWebsite() {
     try {
       if (!token) {
@@ -294,6 +311,7 @@ function App() {
     }
   }
 
+  // Remove a site from the shared org blocklist through the backend.
   async function removeOrgBlockedWebsite(website: string) {
     if (!token) {
       setStatus('Sign in first to edit the organization blocklist.');
@@ -320,6 +338,7 @@ function App() {
     }
   }
 
+  // Create a brand-new organization owned by the current user.
   async function createOrganizationForCurrentUser() {
     const nextOrgName = organizationNameInput.trim();
     if (!token) {
@@ -346,7 +365,7 @@ function App() {
     }
   }
 
-
+  // Join an existing organization using its id.
   async function joinOrganizationForCurrentUser() {
     const nextOrganizationId = joinOrganizationIdInput.trim();
     if (!token) {
@@ -373,6 +392,7 @@ function App() {
     }
   }
 
+  // Leave the current organization after confirming the action with the user.
   async function leaveCurrentOrganization() {
     if (!token || !organization) {
       setStatus('No organization to leave.');
@@ -400,10 +420,12 @@ function App() {
     }
   }
 
+  // Mirror the current org list into extension storage for the background worker.
   useEffect(() => {
     void saveOrgBlockedWebsites(orgBlockedWebsites);
   }, [orgBlockedWebsites]);
 
+  // Show a minimal loading screen while initial storage/auth reads complete.
   if (isInitializing) {
     return (
       <>
@@ -415,6 +437,7 @@ function App() {
     );
   }
 
+  // Authenticated popup view with tab navigation.
   if (token) {
     return (
       <>
@@ -526,6 +549,7 @@ function App() {
     );
   }
 
+  // Signed-out popup view.
   return (
     <>
       <h1>TaskFocused</h1>

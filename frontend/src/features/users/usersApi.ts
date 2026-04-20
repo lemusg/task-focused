@@ -7,6 +7,7 @@ type UpsertUserResponse = {
   };
 };
 
+// Ensure the signed-in Google account exists in the backend users collection.
 export async function upsertOAuthUser(backendUrl: string, authToken: string) {
   const res = await fetch(`${backendUrl}/api/users/upsert`, {
     method: 'POST',

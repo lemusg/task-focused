@@ -6,6 +6,7 @@ const manifestPath = path.join(extensionDir, 'manifest.json');
 const frontendEnvPath = path.resolve(extensionDir, '../frontend/.env');
 const shouldSkipKey = process.argv.includes('--no-key');
 
+// Read a simple KEY=VALUE env file into an object.
 function parseEnvFile(filePath) {
   if (!fs.existsSync(filePath)) {
     return {};
@@ -16,6 +17,8 @@ function parseEnvFile(filePath) {
 
   for (const rawLine of content.split(/\r?\n/)) {
     const line = rawLine.trim();
+
+    // Ignore blank lines and comments.
     if (!line || line.startsWith('#')) {
       continue;
     }
@@ -33,9 +36,11 @@ function parseEnvFile(filePath) {
   return env;
 }
 
+// Values from frontend/.env override the current process env when present.
 const fileEnv = parseEnvFile(frontendEnvPath);
 const mergedEnv = { ...process.env, ...fileEnv };
 
+// Load the existing manifest so only selected fields are updated.
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
 const extensionKey = mergedEnv.EXTENSION_KEY;
@@ -51,6 +56,7 @@ if (oauthClientId) {
   manifest.oauth2.client_id = oauthClientId;
 }
 
+// Write the normalized manifest back to disk for extension builds.
 fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 console.log(
   shouldSkipKey

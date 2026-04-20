@@ -7,25 +7,25 @@ const BLOCKED_PAGE_PATH = 'blocked.html';
 
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
 
-// Dedup maps prevent the three concurrent listeners from triple-redirecting the same tab.
+// Track recent redirect attempts so the same tab is not handled repeatedly.
 const recentEnforcements = new Map();
 const recentRescans = new Map();
 let rescanInFlight = null;
 
-// Temporary allowances granted by the AI chat. Keyed by canonicalized hostname.
+// Hostnames approved by the blocked-page flow get a short grace period.
 const temporaryAllowances = new Map();
 
-// In-memory cache of the combined blocklist. Invalidated on storage changes.
+// Cache the merged blocklist until storage changes invalidate it.
 let cachedBlocklistSet = null;
 
-// ─── Hostname helpers ──────────────────────────────────────────────────────────
-
+// Convert hostnames into the normalized form used across the extension.
 function canonicalizeHostname(hostname) {
   const cleaned = String(hostname ?? '').trim().toLowerCase().replace(/\.$/, '');
   if (!cleaned) return null;
   return cleaned.startsWith('www.') ? cleaned.slice(4) : cleaned;
 }
 
+// Accept URLs or raw hostnames and return a valid blocklist hostname.
 function normalizeHostname(input) {
   const trimmed = String(input ?? '').trim().toLowerCase();
   if (!trimmed) return null;
@@ -46,14 +46,14 @@ function normalizeHostname(input) {
   }
 }
 
+// Normalize, dedupe, and sort hostnames before storing or comparing them.
 function dedupeAndSort(hostnames) {
   return [...new Set(hostnames.map(normalizeHostname).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b)
   );
 }
 
-// Returns true if `hostname` is the blocked domain or any subdomain of it.
-// Both sides are canonicalized so www. variants match automatically.
+// Match a blocked hostname against the same host or any of its subdomains.
 function hostnameMatchesBlockedHostname(hostname, blockedHostname) {
   const a = canonicalizeHostname(hostname);
   const b = canonicalizeHostname(blockedHostname);
@@ -61,8 +61,7 @@ function hostnameMatchesBlockedHostname(hostname, blockedHostname) {
   return a === b || a.endsWith(`.${b}`);
 }
 
-// ─── Blocklist storage ─────────────────────────────────────────────────────────
-
+// Read both personal and org blocklists from extension storage.
 async function readCombinedBlocklists() {
   const data = await chrome.storage.local.get([
     PERSONAL_BLOCKED_WEBSITES_KEY,
@@ -82,15 +81,16 @@ async function readCombinedBlocklists() {
   };
 }
 
+// Reuse the merged blocklist until a storage change clears the cache.
 async function getBlockedHostnameSet() {
   if (cachedBlocklistSet !== null) return cachedBlocklistSet;
+
   const { personal, org } = await readCombinedBlocklists();
   cachedBlocklistSet = new Set([...personal, ...org]);
   return cachedBlocklistSet;
 }
 
-// ─── Temporary allowances ──────────────────────────────────────────────────────
-
+// Check whether a hostname is still inside its temporary allow window.
 function isTemporarilyAllowed(hostname) {
   const canonicalized = canonicalizeHostname(hostname);
   if (!canonicalized) return false;
@@ -98,6 +98,7 @@ function isTemporarilyAllowed(hostname) {
   const expiry = temporaryAllowances.get(canonicalized);
   if (typeof expiry !== 'number') return false;
 
+  // Drop expired entries the first time they are checked again.
   if (Date.now() > expiry) {
     temporaryAllowances.delete(canonicalized);
     return false;
@@ -106,6 +107,7 @@ function isTemporarilyAllowed(hostname) {
   return true;
 }
 
+// Grant short-term access after the blocked-page AI approves a visit.
 function addTemporaryAllowance(hostname) {
   const canonicalized = canonicalizeHostname(hostname);
   if (canonicalized) {
@@ -114,8 +116,7 @@ function addTemporaryAllowance(hostname) {
   }
 }
 
-// ─── Dedup helpers ─────────────────────────────────────────────────────────────
-
+// Remove stale entries from a recent-event map before adding new ones.
 function pruneRecentMap(map, windowMs) {
   const now = Date.now();
   for (const [key, timestamp] of map.entries()) {
@@ -123,6 +124,7 @@ function pruneRecentMap(map, windowMs) {
   }
 }
 
+// Skip repeated redirect attempts for the same tab/url pair.
 function shouldSkipRecentEnforcement(url, tabId) {
   pruneRecentMap(recentEnforcements, ENFORCEMENT_DEDUPE_WINDOW_MS);
   const key = `${tabId}:${url}`;
@@ -133,6 +135,7 @@ function shouldSkipRecentEnforcement(url, tabId) {
   return false;
 }
 
+// Skip repeated rescans for the same tab/url pair inside a short window.
 function shouldSkipRecentRescan(url, tabId) {
   pruneRecentMap(recentRescans, RESCAN_DEDUPE_WINDOW_MS);
   const key = `${tabId}:${url}`;
@@ -143,8 +146,7 @@ function shouldSkipRecentRescan(url, tabId) {
   return false;
 }
 
-// ─── Blocked page helpers ──────────────────────────────────────────────────────
-
+// Recognize the extension's own blocked page so it does not get re-blocked.
 function isExtensionBlockedPage(url) {
   try {
     const blockedPageUrl = chrome.runtime.getURL(BLOCKED_PAGE_PATH);
@@ -154,6 +156,7 @@ function isExtensionBlockedPage(url) {
   }
 }
 
+// Build the internal blocked-page URL with the original site context attached.
 function buildBlockedPageUrl(blockedUrl, hostname, source) {
   const blockedPageUrl = new URL(chrome.runtime.getURL(BLOCKED_PAGE_PATH));
   blockedPageUrl.searchParams.set('url', blockedUrl);
@@ -162,11 +165,7 @@ function buildBlockedPageUrl(blockedUrl, hostname, source) {
   return blockedPageUrl.toString();
 }
 
-// ─── Core enforcement ──────────────────────────────────────────────────────────
-
-// Returns the canonicalized visited hostname if `url` matches a blocked entry,
-// null otherwise. Uses `canonicalizeHostname` directly since `parsed.hostname`
-// is already a clean hostname — no need to re-parse through `normalizeHostname`.
+// Decide whether a navigated URL matches any currently blocked hostname.
 async function getMatchedBlockedHostname(url) {
   try {
     const parsed = new URL(url);
@@ -175,6 +174,7 @@ async function getMatchedBlockedHostname(url) {
     const hostname = canonicalizeHostname(parsed.hostname);
     if (!hostname || (hostname !== 'localhost' && !hostname.includes('.'))) return null;
 
+    // A temporary allowance bypasses normal blocklist matching.
     if (isTemporarilyAllowed(hostname)) return null;
 
     const blockedHostnames = await getBlockedHostnameSet();
@@ -188,14 +188,14 @@ async function getMatchedBlockedHostname(url) {
   }
 }
 
+// Replace the current tab URL with the extension's blocked page.
 async function redirectBlockedTab(url, tabId, hostname, source) {
   if (typeof tabId !== 'number' || tabId < 0) return;
 
   const blockedPageUrl = buildBlockedPageUrl(url, hostname, source);
 
   try {
-    // Re-fetch the tab to guard against TOCTOU: if the user has already
-    // navigated away between the listener firing and here, skip the redirect.
+    // Recheck the tab first so we do not overwrite a newer navigation.
     const tab = await chrome.tabs.get(tabId);
     if (!tab || tab.url !== url) return;
 
@@ -205,6 +205,7 @@ async function redirectBlockedTab(url, tabId, hostname, source) {
   }
 }
 
+// Apply blocklist rules to a single tab update event.
 async function enforceBlockedTab(url, tabId, source = 'unknown') {
   try {
     if (typeof tabId !== 'number' || tabId < 0 || !url || isExtensionBlockedPage(url)) return;
@@ -223,8 +224,7 @@ async function enforceBlockedTab(url, tabId, source = 'unknown') {
   }
 }
 
-// ─── Open-tab rescan ───────────────────────────────────────────────────────────
-
+// Re-evaluate every open tab after startup or storage changes.
 async function doRescanOpenTabs(reason = 'rescan') {
   const tabs = await chrome.tabs.query({});
 
@@ -237,8 +237,7 @@ async function doRescanOpenTabs(reason = 'rescan') {
   );
 }
 
-// Singleton: if a rescan is already in flight, return the same promise rather
-// than launching a second concurrent scan.
+// Share one in-flight rescan so duplicate triggers reuse the same work.
 function rescanOpenTabs(reason = 'rescan') {
   if (!rescanInFlight) {
     rescanInFlight = doRescanOpenTabs(reason).finally(() => {
@@ -248,8 +247,7 @@ function rescanOpenTabs(reason = 'rescan') {
   return rescanInFlight;
 }
 
-// ─── Initialization ────────────────────────────────────────────────────────────
-
+// Run the initial scan when the worker starts or installs.
 async function initializeBlocking() {
   try {
     await rescanOpenTabs('initializeBlocking');
@@ -258,25 +256,23 @@ async function initializeBlocking() {
   }
 }
 
-// ─── Extension lifecycle ───────────────────────────────────────────────────────
-
+// Install-time startup path.
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Extension installed');
   void initializeBlocking();
 });
 
+// Browser startup path.
 chrome.runtime.onStartup.addListener(() => {
   console.log('Extension started');
   void initializeBlocking();
 });
 
-// ─── Storage change listener ───────────────────────────────────────────────────
-
+// Clear the cached blocklist and rescan when local storage changes.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
 
   if (changes[PERSONAL_BLOCKED_WEBSITES_KEY] || changes[ORG_BLOCKED_WEBSITES_KEY]) {
-    // Invalidate the in-memory cache so the next enforcement reads fresh data.
     cachedBlocklistSet = null;
 
     void rescanOpenTabs('storage.onChanged').catch((error) => {
@@ -285,30 +281,26 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
-// ─── Navigation listeners ──────────────────────────────────────────────────────
-
-// onCommitted: catches standard navigations (including hard refreshes).
+// Catch regular page navigations.
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0 || !details.url) return;
   void enforceBlockedTab(details.url, details.tabId, 'onCommitted');
 });
 
-// onHistoryStateUpdated: catches SPA client-side route changes.
+// Catch client-side route changes in single-page apps.
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   if (details.frameId !== 0 || !details.url) return;
   void enforceBlockedTab(details.url, details.tabId, 'onHistoryStateUpdated');
 });
 
-// tabs.onUpdated: catches URL changes not surfaced by webNavigation (e.g. extensions modifying tabs).
+// Catch tab URL changes that may not surface through webNavigation.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
   if (!changeInfo.url) return;
   void enforceBlockedTab(changeInfo.url, tabId, 'tabs.onUpdated');
 });
 
-// ─── Message listener ──────────────────────────────────────────────────────────
-
+// Handle runtime messages from the popup and blocked page.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  // Rescan all open tabs (triggered after popup changes the blocklist).
   if (message?.type === 'SYNC_BLOCKING_RULES' || message?.type === 'RESCAN_BLOCKED_TABS') {
     rescanOpenTabs('runtime.onMessage')
       .then(() => sendResponse({ ok: true }))
@@ -319,7 +311,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  // Granted by the AI chat: temporarily allow a hostname for TEMP_ALLOW_TTL_MS.
+  // Allow the blocked page to request a short-term exception for a hostname.
   if (message?.type === 'ALLOW_TEMPORARILY' && typeof message.hostname === 'string') {
     addTemporaryAllowance(message.hostname);
     sendResponse({ ok: true });

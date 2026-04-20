@@ -41,7 +41,7 @@
       gap: 20px;
     }
 
-    /* Header */
+    /* Header bar shown above the blocked-site content. */
     .header {
       display: flex;
       align-items: center;
@@ -64,7 +64,7 @@
       color: var(--text-muted);
     }
 
-    /* Blocked card */
+    /* Summary card that explains which site was blocked. */
     .blocked-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -128,7 +128,7 @@
     }
     .back-link:hover { border-color: var(--text-muted); color: var(--text); }
 
-    /* Chat */
+    /* Main chat shell used for the approval conversation. */
     .chat-card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -199,7 +199,7 @@
       color: #fff;
     }
 
-    /* Typing indicator */
+    /* Typing indicator shown while the AI request is in flight. */
     .typing .bubble {
       background: var(--surface-2);
       border: 1px solid var(--border);
@@ -224,7 +224,7 @@
       30% { transform: translateY(-5px); }
     }
 
-    /* Allow button */
+    /* Button shown only when the AI approves temporary access. */
     .allow-btn {
       display: inline-flex;
       align-items: center;
@@ -243,7 +243,7 @@
     .allow-btn:hover { opacity: 0.85; }
     .allow-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Input */
+    /* Message composer pinned to the bottom of the chat card. */
     .input-row {
       display: flex;
       gap: 10px;
@@ -291,12 +291,14 @@
 </head>
 <body>
   <div class="shell">
+    <!-- Top identity row for the blocked page. -->
     <header class="header">
       <span class="logo">TaskFocused</span>
       <span class="divider-dot"></span>
       <span class="header-label">Access blocked</span>
     </header>
 
+    <!-- Site details and the manual back action. -->
     <div class="blocked-card">
       <span class="blocked-badge">Blocked</span>
       <div class="blocked-hostname" id="blocked-hostname">—</div>
@@ -307,6 +309,7 @@
       <button class="back-link" id="back-btn">&#8592; Go back</button>
     </div>
 
+    <!-- Chat area where the user explains why access is needed. -->
     <div class="chat-card">
       <div class="chat-header">
         <span class="ai-dot"></span>
@@ -330,6 +333,7 @@
     </div>
   </div>
 
+  <!-- The page behavior lives in the companion script below. -->
   <script src="blocked-page.js"></script>
 </body>
 </html>
