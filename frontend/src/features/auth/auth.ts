@@ -61,6 +61,16 @@ export async function saveUserId(userId: string) {
   }
 }
 
+export async function loadSavedUserId() {
+  if (!chromeApi?.storage?.local) {
+    return null;
+  }
+
+  const data = await chromeApi.storage.local.get(USER_ID_KEY);
+  const value = data[USER_ID_KEY];
+  return typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : null;
+}
+
 // Load the previously saved OAuth token if one exists.
 export async function loadSavedToken() {
   if (!chromeApi?.storage?.local) {

@@ -36,6 +36,134 @@ const LLM_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 const LLM_REQUEST_COUNT_KEY = 'llmRequestCount';
 const LLM_COOLDOWN_UNTIL_KEY = 'llmCooldownUntil';
 
+// Persist the blocked-page chat for a short window so refreshes don't erase context.
+const LLM_CHAT_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const LLM_CHAT_STATES_KEY = 'llmChatStates';
+const LLM_SESSION_UPDATED_AT_KEY = 'llmSessionUpdatedAt';
+const LLM_EXPIRY_POLL_MS = 15 * 1000; // 15s
+
+function canonicalizeSiteKey(hostname) {
+  return String(hostname ?? '').trim().toLowerCase();
+}
+
+async function clearLlmSessionState({ clearAllChats } = { clearAllChats: false }) {
+  const updates = {
+    [LLM_REQUEST_COUNT_KEY]: 0,
+    [LLM_COOLDOWN_UNTIL_KEY]: 0,
+    [LLM_SESSION_UPDATED_AT_KEY]: 0,
+  };
+
+  if (clearAllChats) {
+    updates[LLM_CHAT_STATES_KEY] = {};
+  } else {
+    const siteKey = canonicalizeSiteKey(blockedHostname);
+    const data = await chrome.storage.local.get([LLM_CHAT_STATES_KEY]);
+    const states = data[LLM_CHAT_STATES_KEY] && typeof data[LLM_CHAT_STATES_KEY] === 'object'
+      ? data[LLM_CHAT_STATES_KEY]
+      : {};
+    if (states && typeof states === 'object') {
+      delete states[siteKey];
+      updates[LLM_CHAT_STATES_KEY] = states;
+    }
+  }
+
+  await chrome.storage.local.set(updates);
+}
+
+async function saveChatState() {
+  const now = Date.now();
+  const siteKey = canonicalizeSiteKey(blockedHostname);
+  const data = await chrome.storage.local.get([LLM_CHAT_STATES_KEY]);
+  const states =
+    data[LLM_CHAT_STATES_KEY] && typeof data[LLM_CHAT_STATES_KEY] === 'object'
+      ? data[LLM_CHAT_STATES_KEY]
+      : {};
+
+  states[siteKey] = {
+    updatedAt: now,
+    turns: conversationHistory.slice(),
+  };
+
+  await chrome.storage.local.set({
+    [LLM_CHAT_STATES_KEY]: states,
+    [LLM_SESSION_UPDATED_AT_KEY]: now,
+  });
+}
+
+async function pruneExpiredChatStates() {
+  const data = await chrome.storage.local.get([LLM_CHAT_STATES_KEY]);
+  const states =
+    data[LLM_CHAT_STATES_KEY] && typeof data[LLM_CHAT_STATES_KEY] === 'object'
+      ? data[LLM_CHAT_STATES_KEY]
+      : {};
+
+  const now = Date.now();
+  let didChange = false;
+  for (const [key, value] of Object.entries(states)) {
+    const updatedAt = typeof value?.updatedAt === 'number' ? value.updatedAt : 0;
+    if (!updatedAt || now - updatedAt > LLM_CHAT_TTL_MS) {
+      delete states[key];
+      didChange = true;
+    }
+  }
+
+  if (didChange) {
+    await chrome.storage.local.set({ [LLM_CHAT_STATES_KEY]: states });
+  }
+}
+
+async function loadChatStateIfFresh() {
+  const siteKey = canonicalizeSiteKey(blockedHostname);
+  const data = await chrome.storage.local.get([LLM_CHAT_STATES_KEY]);
+  const states =
+    data[LLM_CHAT_STATES_KEY] && typeof data[LLM_CHAT_STATES_KEY] === 'object'
+      ? data[LLM_CHAT_STATES_KEY]
+      : {};
+
+  const state = states?.[siteKey];
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  const updatedAt = typeof state.updatedAt === 'number' ? state.updatedAt : 0;
+  const turns = Array.isArray(state.turns) ? state.turns : null;
+  if (!updatedAt || !turns) {
+    return null;
+  }
+
+  if (Date.now() - updatedAt > LLM_CHAT_TTL_MS) {
+    // Expired for this site: clear this site's chat and reset attempts.
+    await clearLlmSessionState({ clearAllChats: false });
+    return null;
+  }
+
+  return { updatedAt, turns };
+}
+
+async function expireSessionIfNeeded() {
+  const data = await chrome.storage.local.get([LLM_SESSION_UPDATED_AT_KEY]);
+  const updatedAt = typeof data[LLM_SESSION_UPDATED_AT_KEY] === 'number' ? data[LLM_SESSION_UPDATED_AT_KEY] : 0;
+  if (!updatedAt) {
+    return false;
+  }
+
+  if (Date.now() - updatedAt > LLM_CHAT_TTL_MS) {
+    await clearLlmSessionState({ clearAllChats: true });
+    return true;
+  }
+
+  return false;
+}
+
+function resetUiToFreshSession() {
+  messagesEl.innerHTML = '';
+  conversationHistory.length = 0;
+  const initialAiMessage = `You're trying to visit ${blockedHostname}, which is on your blocked list. What's your reason for needing access right now?`;
+  appendMessage('ai', initialAiMessage);
+  conversationHistory.push({ role: 'assistant', content: initialAiMessage });
+  void saveChatState();
+}
+
 function formatCooldown(msRemaining) {
   const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -58,6 +186,12 @@ async function setLlmLimitState(next) {
 }
 
 async function enforceLlmCooldownUi() {
+  // If the overall session TTL elapsed, clear and reset attempts even if user didn't use all attempts.
+  const didExpire = await expireSessionIfNeeded();
+  if (didExpire) {
+    resetUiToFreshSession();
+  }
+
   const { count, cooldownUntil } = await getLlmLimitState();
   const now = Date.now();
   const remaining = cooldownUntil > now ? cooldownUntil - now : 0;
@@ -291,7 +425,14 @@ async function callLLM(history) {
     throw new Error('Not signed in. Sign in via the extension popup first.');
   }
 
-  const system = `${await loadSystemPrompt()}${SITE_CONTEXT_PROMPT}`;
+  // Tell the model which attempt this is (1..3) and whether it's the final attempt.
+  // Count tracks successful responses so far; the next request is count+1.
+  const state = await getLlmLimitState();
+  const attemptNumber = Math.min(LLM_MAX_REQUESTS, Math.max(1, (state.count ?? 0) + 1));
+  const isFinalAttempt = attemptNumber >= LLM_MAX_REQUESTS;
+  const attemptContext = `\n\nAttempt context:\n- attempt: ${attemptNumber}/${LLM_MAX_REQUESTS}\n- final_attempt: ${isFinalAttempt ? 'yes' : 'no'}\n`;
+
+  const system = `${await loadSystemPrompt()}${SITE_CONTEXT_PROMPT}${attemptContext}`;
 
   const res = await fetch(`${BACKEND_URL}/api/chat`, {
     method: 'POST',
@@ -348,6 +489,7 @@ async function sendMessage() {
 
   appendMessage('user', text);
   conversationHistory.push({ role: 'user', content: text });
+  await saveChatState();
 
   showTyping();
 
@@ -381,6 +523,7 @@ async function sendMessage() {
 
   conversationHistory.push({ role: 'assistant', content: cleanReply });
   appendMessage('ai', cleanReply, allowAccess);
+  await saveChatState();
 
   sendBtn.disabled = false;
   inputEl.focus();
@@ -403,11 +546,37 @@ inputEl.addEventListener('input', () => {
   inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
 });
 
-// Seed the conversation with the initial prompt shown to the user.
-const initialAiMessage = `You're trying to visit ${blockedHostname}, which is on your blocked list. What's your reason for needing access right now?`;
-appendMessage('ai', initialAiMessage);
-conversationHistory.push({ role: 'assistant', content: initialAiMessage });
+// Restore chat if it's still within the TTL; otherwise start fresh.
+void (async () => {
+  await pruneExpiredChatStates();
+  if (await expireSessionIfNeeded()) {
+    resetUiToFreshSession();
+    return;
+  }
+
+  const restored = await loadChatStateIfFresh();
+  if (restored?.turns?.length) {
+    // Replay prior turns into the UI + in-memory history.
+    for (const turn of restored.turns) {
+      const role = turn?.role === 'assistant' ? 'ai' : 'user';
+      const content = typeof turn?.content === 'string' ? turn.content : '';
+      if (!content) continue;
+      conversationHistory.push({ role: turn.role, content });
+      // Only show the allow button when the text contains approval token (historical)
+      const allowThrough = role === 'ai' && content.includes('ALLOW_ACCESS');
+      appendMessage(role, content.replace('ALLOW_ACCESS', '').trim(), allowThrough);
+    }
+    return;
+  }
+
+  resetUiToFreshSession();
+})();
 
 void enforceLlmCooldownUi();
 void hydrateOrgPolicyLine();
 inputEl.focus();
+
+// Keep expiring/resetting even if the tab stays open.
+setInterval(() => {
+  void enforceLlmCooldownUi();
+}, LLM_EXPIRY_POLL_MS);

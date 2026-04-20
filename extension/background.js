@@ -168,16 +168,25 @@ function isTemporarilyAllowed(hostname) {
   const canonicalized = canonicalizeHostname(hostname);
   if (!canonicalized) return false;
 
-  const expiry = temporaryAllowances.get(canonicalized);
-  if (typeof expiry !== 'number') return false;
+  const now = Date.now();
 
-  // Drop expired entries the first time they are checked again.
-  if (Date.now() > expiry) {
-    temporaryAllowances.delete(canonicalized);
-    return false;
+  // Allow applies to the exact hostname OR any subdomain of an allowed hostname.
+  // This is important for flows like login/2FA that hop across subdomains.
+  for (const [allowedHostname, expiry] of temporaryAllowances.entries()) {
+    if (typeof expiry !== 'number') continue;
+
+    // Drop expired entries the first time they are checked again.
+    if (now > expiry) {
+      temporaryAllowances.delete(allowedHostname);
+      continue;
+    }
+
+    if (hostnameMatchesBlockedHostname(canonicalized, allowedHostname)) {
+      return true;
+    }
   }
 
-  return true;
+  return false;
 }
 
 // Grant short-term access after the blocked-page AI approves a visit.
