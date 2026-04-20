@@ -25,6 +25,55 @@ const sendBtn = document.getElementById('send-btn');
 // Keep local chat history so every request includes prior turns.
 const conversationHistory = [];
 
+const LLM_MAX_REQUESTS = 3;
+const LLM_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+const LLM_REQUEST_COUNT_KEY = 'llmRequestCount';
+const LLM_COOLDOWN_UNTIL_KEY = 'llmCooldownUntil';
+
+function formatCooldown(msRemaining) {
+  const totalSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  if (seconds === 0) return `${minutes}m`;
+  return `${minutes}m ${seconds}s`;
+}
+
+async function getLlmLimitState() {
+  const data = await chrome.storage.local.get([LLM_REQUEST_COUNT_KEY, LLM_COOLDOWN_UNTIL_KEY]);
+  const count = typeof data[LLM_REQUEST_COUNT_KEY] === 'number' ? data[LLM_REQUEST_COUNT_KEY] : 0;
+  const cooldownUntil =
+    typeof data[LLM_COOLDOWN_UNTIL_KEY] === 'number' ? data[LLM_COOLDOWN_UNTIL_KEY] : 0;
+  return { count, cooldownUntil };
+}
+
+async function setLlmLimitState(next) {
+  await chrome.storage.local.set(next);
+}
+
+async function enforceLlmCooldownUi() {
+  const { count, cooldownUntil } = await getLlmLimitState();
+  const now = Date.now();
+  const remaining = cooldownUntil > now ? cooldownUntil - now : 0;
+
+  if (remaining > 0) {
+    inputEl.disabled = true;
+    sendBtn.disabled = true;
+    inputEl.placeholder = `Cooldown active. Try again in ${formatCooldown(remaining)}…`;
+    return true;
+  }
+
+  // Not in cooldown.
+  inputEl.disabled = false;
+  sendBtn.disabled = false;
+  const attemptsLeft = Math.max(0, LLM_MAX_REQUESTS - count);
+  inputEl.placeholder =
+    attemptsLeft <= 1
+      ? 'Explain why you need to visit this site… (last attempt)'
+      : `Explain why you need to visit this site… (${attemptsLeft} attempts left)`;
+  return false;
+}
+
 async function loadSystemPrompt() {
   try {
     const url = chrome.runtime.getURL('system-prompt.md');
@@ -154,8 +203,35 @@ async function callLLM(history) {
 
 // Read the current textbox value, send it, and render the response.
 async function sendMessage() {
+  if (await enforceLlmCooldownUi()) {
+    const { cooldownUntil } = await getLlmLimitState();
+    const remaining = Math.max(0, cooldownUntil - Date.now());
+    appendMessage(
+      'ai',
+      `You’ve hit the limit of ${LLM_MAX_REQUESTS} requests. Please wait ${formatCooldown(
+        remaining
+      )} before trying again.`
+    );
+    return;
+  }
+
   const text = inputEl.value.trim();
   if (!text) return;
+
+  // Enforce the "3 chances" rule across all blocked sites (persisted in storage).
+  // IMPORTANT: attempts are only consumed after the AI successfully responds.
+  const stateBeforeCall = await getLlmLimitState();
+  if (stateBeforeCall.count >= LLM_MAX_REQUESTS) {
+    const remaining = Math.max(0, stateBeforeCall.cooldownUntil - Date.now());
+    appendMessage(
+      'ai',
+      `You’ve hit the limit of ${LLM_MAX_REQUESTS} requests. Please wait ${formatCooldown(
+        remaining
+      )} before trying again.`
+    );
+    await enforceLlmCooldownUi();
+    return;
+  }
 
   inputEl.value = '';
   inputEl.style.height = 'auto';
@@ -173,10 +249,22 @@ async function sendMessage() {
     removeTyping();
     appendMessage('ai', 'Something went wrong reaching the AI. Try again.');
     sendBtn.disabled = false;
+    // Do not consume an attempt if the AI request failed.
+    await enforceLlmCooldownUi();
     return;
   }
 
   removeTyping();
+
+  // Consume one attempt only after a successful AI response.
+  const stateAfterCall = await getLlmLimitState();
+  const nextCount = Math.min(LLM_MAX_REQUESTS, (stateAfterCall.count ?? 0) + 1);
+  const updates = { [LLM_REQUEST_COUNT_KEY]: nextCount };
+  if (nextCount >= LLM_MAX_REQUESTS) {
+    updates[LLM_COOLDOWN_UNTIL_KEY] = Date.now() + LLM_COOLDOWN_MS;
+  }
+  await setLlmLimitState(updates);
+  await enforceLlmCooldownUi();
 
   // The model appends ALLOW_ACCESS when the visit should be approved.
   const allowAccess = reply.includes('ALLOW_ACCESS');
@@ -212,4 +300,5 @@ appendMessage(
   `You're trying to visit ${blockedHostname}, which is on your blocked list. What's your reason for needing access right now?`
 );
 
+void enforceLlmCooldownUi();
 inputEl.focus();
