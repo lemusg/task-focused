@@ -1,45 +1,72 @@
-#root {
-  width: 340px;
-  margin: 0 auto;
-  padding: 1rem;
-  text-align: center;
+.app-shell {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+.app-logo {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent);
+  letter-spacing: -0.02em;
 }
 
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.divider-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--border);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.header-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  padding: 1rem;
+  gap: 12px;
+}
+
+.card h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.card p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.status-line {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  word-break: break-word;
 }
 
 .user-home-actions {
@@ -48,16 +75,13 @@
 }
 
 .user-home-actions input {
-  border-radius: 8px;
-  border: 1px solid #444;
-  padding: 0.55rem 0.7rem;
-  font-size: 0.95rem;
+  width: 100%;
 }
 
 .helper-text {
   margin: 0;
   font-size: 0.8rem;
-  opacity: 0.8;
+  color: var(--text-muted);
 }
 
 .organization-owner-page {
@@ -67,11 +91,12 @@
 .org-name-subtitle {
   margin: -0.35rem 0 0.5rem;
   font-size: 0.9rem;
-  opacity: 0.9;
+  color: var(--text-muted);
 }
 
 .danger-button {
-  color: #dc2626;
+  color: var(--red);
+  border-color: rgba(245, 101, 101, 0.35);
 }
 
 .org-id-footer {
@@ -90,7 +115,8 @@
 }
 
 .view-switch button.active {
-  border-color: #646cff;
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .website-form {
@@ -100,10 +126,7 @@
 }
 
 .website-form input {
-  border-radius: 8px;
-  border: 1px solid #444;
-  padding: 0.55rem 0.7rem;
-  font-size: 0.95rem;
+  width: 100%;
 }
 
 .website-list {
@@ -121,9 +144,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.45rem 0.55rem;
+  padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(100, 108, 255, 0.08);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
 }
 
 .website-list span {
@@ -135,5 +159,5 @@
 }
 
 .read-the-docs {
-  color: #888;
+  color: var(--text-muted);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BlockedWebsitesPage } from './features/blocked-websites/BlockedWebsitesPage';
 import { PersonalBlockedWebsitesPage } from './features/blocked-websites/PersonalBlockedWebsitesPage';
+import './App.css';
 import {
   clearOrgBlockedWebsites,
   loadOrgBlockedWebsites,
@@ -404,21 +405,39 @@ function App() {
     void saveOrgBlockedWebsites(orgBlockedWebsites);
   }, [orgBlockedWebsites]);
 
+  const headerLabel = token
+    ? view === 'home'
+      ? 'Home'
+      : view === 'blocked-websites'
+        ? 'Blocked websites'
+        : 'Organization'
+    : 'Sign in';
+
   if (isInitializing) {
     return (
-      <>
-        <h1>TaskFocused</h1>
+      <div className="app-shell">
+        <header className="app-header">
+          <span className="app-logo">TaskFocused</span>
+          <span className="divider-dot" />
+          <span className="header-label">{headerLabel}</span>
+        </header>
         <div className="card user-home-actions">
+          <h1>TaskFocused</h1>
           <p>Loading...</p>
         </div>
-      </>
+      </div>
     );
   }
 
   if (token) {
     return (
-      <>
-        <h1>Task Focused</h1>
+      <div className="app-shell">
+        <header className="app-header">
+          <span className="app-logo">TaskFocused</span>
+          <span className="divider-dot" />
+          <span className="header-label">{headerLabel}</span>
+        </header>
+
         <div className="view-switch">
           <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
             Home
@@ -438,6 +457,7 @@ function App() {
             </button>
           ) : null}
         </div>
+
         <div className="card">
           {view === 'home' ? (
             <HomePage
@@ -520,20 +540,26 @@ function App() {
               </button>
             </>
           )}
-          <p>{status}</p>
+
+          <div className="status-line">{status}</div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <h1>TaskFocused</h1>
+    <div className="app-shell">
+      <header className="app-header">
+        <span className="app-logo">TaskFocused</span>
+        <span className="divider-dot" />
+        <span className="header-label">{headerLabel}</span>
+      </header>
       <div className="card user-home-actions">
+        <h1>TaskFocused</h1>
         <button onClick={() => void signIn()}>Login</button>
-        <p>{status}</p>
+        <div className="status-line">{status}</div>
       </div>
-    </>
+    </div>
   );
 }
 
