@@ -1,6 +1,7 @@
 type HomePageProps = {
   email: string;
   token: string;
+  hasOrganization: boolean;
   organizationNameInput: string;
   joinOrganizationIdInput: string;
   onSignOut: () => void;
@@ -13,6 +14,7 @@ type HomePageProps = {
 export function HomePage({
   email,
   token,
+  hasOrganization,
   organizationNameInput,
   joinOrganizationIdInput,
   onSignOut,
@@ -24,24 +26,28 @@ export function HomePage({
   return (
     <>
       <button onClick={onSignOut}>Sign out</button>
-      <div className="website-form">
-        <input
-          type="text"
-          value={organizationNameInput}
-          placeholder="New organization name"
-          onChange={(event) => onOrganizationNameInputChange(event.target.value)}
-        />
-        <button onClick={onCreateOrganization}>Create organization</button>
-      </div>
-      <div className="website-form">
-        <input
-          type="text"
-          value={joinOrganizationIdInput}
-          placeholder="Organization ID"
-          onChange={(event) => onJoinOrganizationIdInputChange(event.target.value)}
-        />
-        <button onClick={onJoinOrganization}>Join organization</button>
-      </div>
+      {!hasOrganization ? (
+        <>
+          <div className="website-form">
+            <input
+              type="text"
+              value={organizationNameInput}
+              placeholder="New organization name"
+              onChange={(event) => onOrganizationNameInputChange(event.target.value)}
+            />
+            <button onClick={onCreateOrganization}>Create organization</button>
+          </div>
+          <div className="website-form">
+            <input
+              type="text"
+              value={joinOrganizationIdInput}
+              placeholder="Organization ID"
+              onChange={(event) => onJoinOrganizationIdInputChange(event.target.value)}
+            />
+            <button onClick={onJoinOrganization}>Join organization</button>
+          </div>
+        </>
+      ) : null}
       <p>{email ? `Email: ${email}` : 'No profile email available'}</p>
       <p>{token ? `Token saved (${token.slice(0, 14)}...)` : 'No token saved yet'}</p>
     </>

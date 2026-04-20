@@ -443,6 +443,7 @@ function App() {
             <HomePage
               email={email}
               token={token}
+              hasOrganization={Boolean(organization)}
               organizationNameInput={organizationNameInput}
               joinOrganizationIdInput={joinOrganizationIdInput}
               onSignOut={signOut}
