@@ -25,6 +25,7 @@ export function HomePage({
 }: HomePageProps) {
   return (
     <>
+      {/* Sign-out action for the current popup session. */}
       <button onClick={onSignOut}>Sign out</button>
       {!hasOrganization ? (
         <>

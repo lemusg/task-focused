@@ -4,8 +4,11 @@ import User from '../../db/models/User';
 import { getAuthenticatedUserId, requireGoogleAuth } from '../middleware/requireGoogleAuth';
 
 const router = Router();
+
+// Require auth once for the whole users route group.
 router.use(requireGoogleAuth);
 
+// Ensure the authenticated Google account has a local user record.
 router.post('/users/upsert', async (req, res) => {
   try {
     await connectDB();
@@ -14,6 +17,7 @@ router.post('/users/upsert', async (req, res) => {
     const user = await User.findOneAndUpdate(
       { userId },
       {
+        // New users start as standalone members until they join an org.
         $setOnInsert: {
           userId,
           role: 'member',

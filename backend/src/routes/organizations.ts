@@ -5,20 +5,26 @@ import User from '../../db/models/User';
 import { getAuthenticatedUserId, requireGoogleAuth } from '../middleware/requireGoogleAuth';
 
 const router = Router();
+
+// Every organization route requires a verified Google user.
 router.use(requireGoogleAuth);
 
+// Normalize app-level user ids so comparisons stay case-insensitive.
 function normalizeUserId(input: string): string {
   return input.trim().toLowerCase();
 }
 
+// Check membership/admin arrays using normalized email values.
 function includesUser(list: string[], userId: string): boolean {
   return list.some((item) => item.toLowerCase() === userId);
 }
 
+// Remove one user from a stored membership list.
 function removeUser(list: string[], userId: string): string[] {
   return list.filter((item) => item.toLowerCase() !== userId);
 }
 
+// Store org blocklist entries as bare hostnames.
 function normalizeWebsite(input: string): string {
   const trimmed = input.trim().toLowerCase();
   if (!trimmed) {
@@ -34,23 +40,27 @@ function normalizeWebsite(input: string): string {
   return parsed.hostname;
 }
 
+// Create an organization and make the current user its first admin.
 router.post('/organizations', async (req, res) => {
   try {
     await connectDB();
     const userId = getAuthenticatedUserId(req);
     const organizationName = String(req.body.organizationName ?? '').trim();
 
+    // A blank org name is not useful to store or return.
     if (!organizationName) {
       res.status(400).json({ message: 'organizationName is required.' });
       return;
     }
 
+    // Keep names unique so users can distinguish orgs clearly.
     const existingOrgWithName = await Organization.findOne({ name: organizationName });
     if (existingOrgWithName) {
       res.status(409).json({ message: 'Organization name already exists.' });
       return;
     }
 
+    // Users can only belong to one organization at a time.
     let user = await User.findOne({ userId });
     if (user?.organization) {
       res.status(400).json({ message: 'User already belongs to an organization.' });
@@ -64,6 +74,7 @@ router.post('/organizations', async (req, res) => {
       blockedWebsites: [],
     });
 
+    // Update an existing user document when possible, otherwise create one.
     if (user) {
       user.role = 'admin';
       user.organization = String(organization._id);
@@ -95,11 +106,14 @@ router.post('/organizations', async (req, res) => {
   }
 });
 
+// Load the organization tied to the authenticated user.
 router.get('/organizations/by-user/:userId', async (req, res) => {
   try {
     await connectDB();
     const userId = getAuthenticatedUserId(req);
     const requestedUserId = normalizeUserId(String(req.params.userId ?? ''));
+
+    // Prevent a signed-in user from querying someone else's org record.
     if (requestedUserId && requestedUserId !== userId) {
       res.status(403).json({ message: 'Forbidden for requested user.' });
       return;
@@ -130,6 +144,7 @@ router.get('/organizations/by-user/:userId', async (req, res) => {
   }
 });
 
+// Attach the authenticated user to an existing organization.
 router.post('/organizations/join', async (req, res) => {
   try {
     await connectDB();
@@ -153,11 +168,13 @@ router.post('/organizations/join', async (req, res) => {
       return;
     }
 
+    // Add the user to the org record only once.
     if (!includesUser(organization.members, userId)) {
       organization.members.push(userId);
       await organization.save();
     }
 
+    // Persist the user's new org membership locally.
     if (existingUser) {
       existingUser.organization = String(organization._id);
       existingUser.role = 'member';
@@ -184,6 +201,7 @@ router.post('/organizations/join', async (req, res) => {
   }
 });
 
+// Add a hostname to the org-wide blocklist.
 router.post('/organizations/:organizationId/blocklist', async (req, res) => {
   try {
     await connectDB();
@@ -202,6 +220,7 @@ router.post('/organizations/:organizationId/blocklist', async (req, res) => {
       return;
     }
 
+    // Only admins are allowed to edit the shared org blocklist.
     if (!includesUser(organization.admins, userId)) {
       res.status(403).json({ message: 'Only organization admins can update blocklist.' });
       return;
@@ -224,6 +243,7 @@ router.post('/organizations/:organizationId/blocklist', async (req, res) => {
   }
 });
 
+// Remove a hostname from the org-wide blocklist.
 router.delete('/organizations/:organizationId/blocklist', async (req, res) => {
   try {
     await connectDB();
@@ -263,6 +283,7 @@ router.delete('/organizations/:organizationId/blocklist', async (req, res) => {
   }
 });
 
+// Detach the current user from the organization they belong to.
 router.post('/organizations/:organizationId/leave', async (req, res) => {
   try {
     await connectDB();
@@ -287,9 +308,11 @@ router.post('/organizations/:organizationId/leave', async (req, res) => {
       return;
     }
 
+    // Remove the user from both membership lists before saving.
     organization.members = removeUser(organization.members, userId);
     organization.admins = removeUser(organization.admins, userId);
 
+    // Reset the user's local org reference in the users collection.
     const user = await User.findOne({ userId });
     if (user) {
       user.organization = null;
@@ -297,6 +320,7 @@ router.post('/organizations/:organizationId/leave', async (req, res) => {
       await user.save();
     }
 
+    // Delete the org when it no longer has viable membership/admin coverage.
     if (organization.members.length === 0 || organization.admins.length === 0) {
       await User.updateMany(
         { organization: organizationId },
