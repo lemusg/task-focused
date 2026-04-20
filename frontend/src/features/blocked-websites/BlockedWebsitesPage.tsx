@@ -19,6 +19,7 @@ export function BlockedWebsitesPage({
   onAddWebsite,
   onRemoveWebsite,
 }: BlockedWebsitesPageProps) {
+  // Allow Enter to submit the website field without clicking the button.
   function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (canManage && event.key === 'Enter') {
       onAddWebsite();
@@ -27,6 +28,7 @@ export function BlockedWebsitesPage({
 
   return (
     <>
+      {/* Header copy for the shared organization list. */}
       <h2>Org blocked websites</h2>
       <p>{organizationName ? `` : 'No organization yet.'}</p>
       {!canManage ? <p>Only admins can edit this blocklist.</p> : null}

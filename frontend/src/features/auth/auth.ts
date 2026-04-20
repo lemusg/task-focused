@@ -44,12 +44,14 @@ type ChromeApi = {
 const AUTH_TOKEN_KEY = 'authToken';
 const chromeApi = (globalThis as { chrome?: ChromeApi }).chrome;
 
+// Save the OAuth token in extension storage for later popup sessions.
 export async function saveToken(token: string) {
   if (chromeApi?.storage?.local) {
     await chromeApi.storage.local.set({ [AUTH_TOKEN_KEY]: token });
   }
 }
 
+// Load the previously saved OAuth token if one exists.
 export async function loadSavedToken() {
   if (!chromeApi?.storage?.local) {
     return null;
@@ -59,20 +61,24 @@ export async function loadSavedToken() {
   return (data[AUTH_TOKEN_KEY] as string | undefined) ?? null;
 }
 
+// Clear the persisted token during sign-out.
 export async function clearSavedToken() {
   if (chromeApi?.storage?.local) {
     await chromeApi.storage.local.remove(AUTH_TOKEN_KEY);
   }
 }
 
+// Read the OAuth client id directly from the extension manifest.
 export function getOAuthClientId() {
   return chromeApi?.runtime?.getManifest?.().oauth2?.client_id ?? '';
 }
 
+// Expose the runtime id for constructing the Google redirect URI.
 export function getExtensionId() {
   return chromeApi?.runtime?.id ?? '<your-extension-id>';
 }
 
+// Request an OAuth access token from chrome.identity.
 export function getAuthToken(interactive: boolean): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!chromeApi?.identity || !chromeApi.runtime) {
@@ -96,6 +102,7 @@ export function getAuthToken(interactive: boolean): Promise<string> {
   });
 }
 
+// Read the signed-in Google email shown by the browser profile.
 export function getProfileEmail(): Promise<string> {
   return new Promise((resolve) => {
     if (!chromeApi?.identity) {
@@ -109,6 +116,7 @@ export function getProfileEmail(): Promise<string> {
   });
 }
 
+// Remove the token from the browser's OAuth token cache.
 export function removeCachedToken(token: string): Promise<void> {
   return new Promise((resolve) => {
     if (!chromeApi?.identity) {

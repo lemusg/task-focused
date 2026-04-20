@@ -15,6 +15,7 @@ export function PersonalBlockedWebsitesPage({
   onAddWebsite,
   onRemoveWebsite,
 }: PersonalBlockedWebsitesPageProps) {
+  // Match the org page behavior so Enter submits from the text field.
   function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'Enter') {
       onAddWebsite();
@@ -23,8 +24,11 @@ export function PersonalBlockedWebsitesPage({
 
   return (
     <>
+      {/* Header copy for the browser-only personal list. */}
       <h2>Blocked websites</h2>
       <p>Personal list stored in this browser profile.</p>
+
+      {/* Controls for adding a new hostname to the personal list. */}
       <div className="website-form">
         <input
           type="text"
@@ -35,6 +39,8 @@ export function PersonalBlockedWebsitesPage({
         />
         <button onClick={onAddWebsite}>Add website</button>
       </div>
+
+      {/* Show either the empty state or the current personal blocklist. */}
       {blockedWebsites.length === 0 ? (
         <p>No blocked websites yet.</p>
       ) : (

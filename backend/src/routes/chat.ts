@@ -14,9 +14,11 @@ type ChatRequestBody = {
   messages?: Message[];
 };
 
+// Proxy chat requests from the blocked page to the configured LLM provider.
 router.post('/chat', requireGoogleAuth, async (req: Request, res: Response) => {
   const { system, messages } = req.body as ChatRequestBody;
 
+  // Require at least one user/assistant turn before calling the model.
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ message: 'messages must be a non-empty array.' });
     return;
@@ -29,6 +31,7 @@ router.post('/chat', requireGoogleAuth, async (req: Request, res: Response) => {
   }
 
   try {
+    // Build a client per request using the current server configuration.
     const client = new OpenAI({
       apiKey,
       baseURL: 'https://api.z.ai/api/paas/v4',
@@ -37,7 +40,10 @@ router.post('/chat', requireGoogleAuth, async (req: Request, res: Response) => {
     const result = await client.chat.completions.create({
       model: 'GLM-4.5',
       messages: [
+        // Include the optional system prompt first when the UI provides one.
         ...(system ? [{ role: 'system' as const, content: system }] : []),
+
+        // Forward the existing transcript in the provider's expected shape.
         ...messages.map((m) => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
