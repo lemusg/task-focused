@@ -1,5 +1,4 @@
 import { Router, type Request, type Response } from 'express';
-import OpenAI from 'openai';
 import { requireGoogleAuth } from '../middleware/requireGoogleAuth';
 
 const router = Router();
@@ -14,6 +13,23 @@ type ChatRequestBody = {
   messages?: Message[];
 };
 
+type GeminiRole = 'user' | 'model';
+
+function toGeminiRole(role: Message['role']): GeminiRole {
+  return role === 'assistant' ? 'model' : 'user';
+}
+
+function getGeminiTextFromResponse(payload: unknown): string {
+  const data = payload as {
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+  };
+
+  const parts = data?.candidates?.[0]?.content?.parts ?? [];
+  return parts.map((p) => p.text ?? '').join('').trim();
+}
+
 // Proxy chat requests from the blocked page to the configured LLM provider.
 router.post('/chat', requireGoogleAuth, async (req: Request, res: Response) => {
   const { system, messages } = req.body as ChatRequestBody;
@@ -24,37 +40,53 @@ router.post('/chat', requireGoogleAuth, async (req: Request, res: Response) => {
     return;
   }
 
-  const apiKey = process.env.ZAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ message: 'ZAI_API_KEY is not configured.' });
+    res.status(500).json({ message: 'GEMINI_API_KEY is not configured.' });
     return;
   }
 
   try {
-    // Build a client per request using the current server configuration.
-    const client = new OpenAI({
-      apiKey,
-      baseURL: 'https://api.z.ai/api/paas/v4',
+    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      model
+    )}:generateContent`;
+
+    const body = {
+      ...(system
+        ? {
+            systemInstruction: {
+              role: 'system',
+              parts: [{ text: system }],
+            },
+          }
+        : {}),
+      contents: messages.map((m) => ({
+        role: toGeminiRole(m.role),
+        parts: [{ text: m.content }],
+      })),
+    };
+
+    const geminiRes = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify(body),
     });
 
-    const result = await client.chat.completions.create({
-      model: 'GLM-4.5',
-      messages: [
-        // Include the optional system prompt first when the UI provides one.
-        ...(system ? [{ role: 'system' as const, content: system }] : []),
+    const geminiPayload = (await geminiRes.json()) as unknown;
+    if (!geminiRes.ok) {
+      const details = JSON.stringify(geminiPayload);
+      res.status(502).json({ message: `Gemini API request failed (${geminiRes.status}).`, details });
+      return;
+    }
 
-        // Forward the existing transcript in the provider's expected shape.
-        ...messages.map((m) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-      ],
-    });
-
-    const content = result.choices[0]?.message?.content ?? '';
+    const content = getGeminiTextFromResponse(geminiPayload);
     res.json({ content });
   } catch (error) {
-    console.error('Z.AI API error', error);
+    console.error('Gemini API error', error);
     res.status(502).json({ message: 'Failed to get response from AI.' });
   }
 });
