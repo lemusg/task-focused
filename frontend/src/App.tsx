@@ -12,12 +12,14 @@ import {
 } from './features/blocked-websites/blockedWebsites';
 import {
   clearSavedToken,
+  clearSavedUserId,
   getAuthToken,
   getExtensionId,
   getOAuthClientId,
   getProfileEmail,
   loadSavedToken,
   removeCachedToken,
+  saveUserId,
   saveToken,
 } from './features/auth/auth';
 import { HomePage } from './features/home/HomePage';
@@ -119,6 +121,9 @@ function App() {
         setPersonalBlockedWebsites(personalWebsites);
         setOrgBlockedWebsites(orgWebsites);
         setEmail(nextEmail);
+        if (nextEmail) {
+          void saveUserId(nextEmail);
+        }
 
         if (savedToken) {
           setToken(savedToken);
@@ -189,6 +194,9 @@ function App() {
 
       setToken(nextToken);
       setEmail(profileEmail);
+      if (profileEmail) {
+        await saveUserId(profileEmail);
+      }
 
       if (profileEmail) {
         void upsertOAuthUser(backendUrl, nextToken)
@@ -214,6 +222,7 @@ function App() {
 
     await removeCachedToken(token);
     await clearSavedToken();
+    await clearSavedUserId();
     await clearOrgBlockedWebsites();
     setToken('');
     setEmail('');

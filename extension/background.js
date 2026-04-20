@@ -1,9 +1,17 @@
 const PERSONAL_BLOCKED_WEBSITES_KEY = 'personalBlockedWebsites';
 const ORG_BLOCKED_WEBSITES_KEY = 'orgBlockedWebsites';
+const AUTH_TOKEN_KEY = 'authToken';
+const USER_ID_KEY = 'userId';
+const ORG_BLOCKLIST_LAST_SYNC_KEY = 'orgBlockedWebsitesLastSyncedAt';
 const ENFORCEMENT_DEDUPE_WINDOW_MS = 1500;
 const RESCAN_DEDUPE_WINDOW_MS = 3000;
 const TEMP_ALLOW_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const BLOCKED_PAGE_PATH = 'blocked.html';
+const ORG_BLOCKLIST_SYNC_ALARM = 'ORG_BLOCKLIST_SYNC';
+const ORG_BLOCKLIST_MIN_SYNC_WINDOW_MS = 60 * 1000; // 1 minute
+
+// Keep in sync with extension/blocked-page.js (dev default).
+const BACKEND_URL = 'http://localhost:8000';
 
 const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
 
@@ -17,6 +25,61 @@ const temporaryAllowances = new Map();
 
 // Cache the merged blocklist until storage changes invalidate it.
 let cachedBlocklistSet = null;
+
+async function writeOrgBlocklistToStorage(websites, { syncedAt } = {}) {
+  const nextWebsites = dedupeAndSort(Array.isArray(websites) ? websites : []);
+  const payload = {
+    [ORG_BLOCKED_WEBSITES_KEY]: nextWebsites,
+  };
+  if (typeof syncedAt === 'number') {
+    payload[ORG_BLOCKLIST_LAST_SYNC_KEY] = syncedAt;
+  }
+  await chrome.storage.local.set(payload);
+}
+
+async function readOrgSyncContext() {
+  const data = await chrome.storage.local.get([AUTH_TOKEN_KEY, USER_ID_KEY, ORG_BLOCKLIST_LAST_SYNC_KEY]);
+  return {
+    authToken: typeof data[AUTH_TOKEN_KEY] === 'string' ? data[AUTH_TOKEN_KEY] : '',
+    userId: typeof data[USER_ID_KEY] === 'string' ? data[USER_ID_KEY] : '',
+    lastSyncedAt: typeof data[ORG_BLOCKLIST_LAST_SYNC_KEY] === 'number' ? data[ORG_BLOCKLIST_LAST_SYNC_KEY] : 0,
+  };
+}
+
+async function syncOrgBlocklist(reason = 'sync') {
+  try {
+    const { authToken, userId, lastSyncedAt } = await readOrgSyncContext();
+    if (!authToken || !userId) {
+      return;
+    }
+
+    // Avoid hammering the backend if multiple triggers happen in quick succession.
+    if (Date.now() - lastSyncedAt < ORG_BLOCKLIST_MIN_SYNC_WINDOW_MS) {
+      return;
+    }
+
+    const res = await fetch(
+      `${BACKEND_URL}/api/organizations/by-user/${encodeURIComponent(userId)}`,
+      { headers: { Authorization: `Bearer ${authToken}` } }
+    );
+
+    // No org membership means org blocklist should be empty locally.
+    if (res.status === 404) {
+      await writeOrgBlocklistToStorage([], { syncedAt: Date.now() });
+      return;
+    }
+
+    if (!res.ok) {
+      console.warn('Org blocklist sync failed', { reason, status: res.status });
+      return;
+    }
+
+    const data = await res.json();
+    await writeOrgBlocklistToStorage(data?.organization?.blockedWebsites ?? [], { syncedAt: Date.now() });
+  } catch (error) {
+    console.warn('Org blocklist sync error', { reason, error });
+  }
+}
 
 // Convert hostnames into the normalized form used across the extension.
 function canonicalizeHostname(hostname) {
@@ -250,6 +313,8 @@ function rescanOpenTabs(reason = 'rescan') {
 // Run the initial scan when the worker starts or installs.
 async function initializeBlocking() {
   try {
+    // Keep org blocklist in local storage even when popup isn't opened.
+    await syncOrgBlocklist('initializeBlocking');
     await rescanOpenTabs('initializeBlocking');
   } catch (error) {
     console.error('Failed to initialize blocking', error);
@@ -268,9 +333,20 @@ chrome.runtime.onStartup.addListener(() => {
   void initializeBlocking();
 });
 
+// Periodically refresh the org blocklist from the backend.
+chrome.alarms?.create?.(ORG_BLOCKLIST_SYNC_ALARM, { periodInMinutes: 5 });
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (alarm?.name !== ORG_BLOCKLIST_SYNC_ALARM) return;
+  void syncOrgBlocklist('alarms.onAlarm');
+});
+
 // Clear the cached blocklist and rescan when local storage changes.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
+
+  if (changes[AUTH_TOKEN_KEY] || changes[USER_ID_KEY]) {
+    void syncOrgBlocklist('storage.onChanged.auth').catch(() => {});
+  }
 
   if (changes[PERSONAL_BLOCKED_WEBSITES_KEY] || changes[ORG_BLOCKED_WEBSITES_KEY]) {
     cachedBlocklistSet = null;

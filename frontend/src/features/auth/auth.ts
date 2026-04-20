@@ -42,12 +42,19 @@ type ChromeApi = {
 };
 
 const AUTH_TOKEN_KEY = 'authToken';
+const USER_ID_KEY = 'userId';
 const chromeApi = (globalThis as { chrome?: ChromeApi }).chrome;
 
 // Save the OAuth token in extension storage for later popup sessions.
 export async function saveToken(token: string) {
   if (chromeApi?.storage?.local) {
     await chromeApi.storage.local.set({ [AUTH_TOKEN_KEY]: token });
+  }
+}
+
+export async function saveUserId(userId: string) {
+  if (chromeApi?.storage?.local) {
+    await chromeApi.storage.local.set({ [USER_ID_KEY]: String(userId ?? '').trim().toLowerCase() });
   }
 }
 
@@ -65,6 +72,12 @@ export async function loadSavedToken() {
 export async function clearSavedToken() {
   if (chromeApi?.storage?.local) {
     await chromeApi.storage.local.remove(AUTH_TOKEN_KEY);
+  }
+}
+
+export async function clearSavedUserId() {
+  if (chromeApi?.storage?.local) {
+    await chromeApi.storage.local.remove(USER_ID_KEY);
   }
 }
 
