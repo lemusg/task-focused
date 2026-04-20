@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BlockedWebsitesPage } from './features/blocked-websites/BlockedWebsitesPage';
 import { PersonalBlockedWebsitesPage } from './features/blocked-websites/PersonalBlockedWebsitesPage';
+import './App.css';
 import {
   clearOrgBlockedWebsites,
   loadOrgBlockedWebsites,
@@ -63,9 +64,6 @@ function App() {
   const [personalBlockedWebsites, setPersonalBlockedWebsites] = useState<string[]>([]);
   const [orgWebsiteInput, setOrgWebsiteInput] = useState<string>('');
   const [orgBlockedWebsites, setOrgBlockedWebsites] = useState<string[]>([]);
-
-  // One shared status line keeps popup feedback simple.
-  const [status, setStatus] = useState<string>('Ready');
   const role = isAdmin ? 'admin' : 'member';
 
   // Refresh org membership and role for the signed-in user.
@@ -90,8 +88,7 @@ function App() {
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
       setIsAdmin(payload.isAdmin);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load organization.';
-      setStatus(message);
+      console.error('Failed to load organization:', error);
     }
   }
 
@@ -125,13 +122,6 @@ function App() {
 
         if (savedToken) {
           setToken(savedToken);
-          setStatus((currentStatus) =>
-            currentStatus === 'Ready'
-              ? 'Loaded existing identity token from storage.'
-              : currentStatus
-          );
-
-          // Keep the backend user row in sync with the saved browser token.
           void upsertOAuthUser(backendUrl, savedToken).catch((error) => {
             console.error('upsertOAuthUser failed during initialization:', error);
           });
@@ -152,7 +142,6 @@ function App() {
         }
       } catch (error) {
         console.error('initialize failed:', error);
-        setStatus(error instanceof Error ? error.message : 'Initialization failed');
       } finally {
         if (isMounted) {
           setIsInitializing(false);
@@ -176,13 +165,12 @@ function App() {
         !clientId.endsWith('.apps.googleusercontent.com')
       ) {
         const extensionId = getExtensionId();
-        setStatus(
+        console.error(
           `Set extension/manifest.json oauth2.client_id to a real Google OAuth client. Redirect URI must include https://${extensionId}.chromiumapp.org/`
         );
         return;
       }
 
-      setStatus('Opening Google sign-in...');
       debugAuthLog('signIn started');
 
       const nextToken = await getAuthToken(true);
@@ -201,18 +189,12 @@ function App() {
 
       setToken(nextToken);
       setEmail(profileEmail);
-      setStatus('Signed in with Google.');
 
       if (profileEmail) {
         void upsertOAuthUser(backendUrl, nextToken)
           .then(() => refreshOrganizationForUser(profileEmail, nextToken))
           .catch((error) => {
             console.error('upsertOAuthUser failed during signIn:', error);
-            setStatus(
-              error instanceof Error
-                ? error.message
-                : 'Sign-in succeeded but failed to sync user with backend.'
-            );
           });
       } else {
         setOrganization(null);
@@ -221,15 +203,12 @@ function App() {
       }
     } catch (error) {
       console.error('signIn error:', error);
-      const message = error instanceof Error ? error.message : 'Sign-in failed';
-      setStatus(message);
     }
   }
 
   // Clear local auth state and drop any org blocklist cached in storage.
   async function signOut() {
     if (!token) {
-      setStatus('No active token.');
       return;
     }
 
@@ -243,7 +222,6 @@ function App() {
     setOrganization(null);
     setOrgBlockedWebsites([]);
     setIsAdmin(false);
-    setStatus('Signed out and token cleared.');
   }
 
   // Add a site to the browser-only personal blocklist.
@@ -251,7 +229,6 @@ function App() {
     try {
       const normalizedWebsite = normalizeWebsite(personalWebsiteInput);
       if (personalBlockedWebsites.includes(normalizedWebsite)) {
-        setStatus(`${normalizedWebsite} is already in your personal blocked websites.`);
         return;
       }
 
@@ -261,10 +238,8 @@ function App() {
       await savePersonalBlockedWebsites(nextWebsites);
       setPersonalBlockedWebsites(nextWebsites);
       setPersonalWebsiteInput('');
-      setStatus(`Added ${normalizedWebsite} to personal blocked websites.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not add website.';
-      setStatus(message);
+      console.error('Could not add website:', error);
     }
   }
 
@@ -273,24 +248,20 @@ function App() {
     const nextWebsites = personalBlockedWebsites.filter((item) => item !== website);
     await savePersonalBlockedWebsites(nextWebsites);
     setPersonalBlockedWebsites(nextWebsites);
-    setStatus(`Removed ${website} from personal blocked websites.`);
   }
 
   // Add a site to the shared org blocklist through the backend.
   async function addOrgBlockedWebsite() {
     try {
       if (!token) {
-        setStatus('Sign in first to edit the organization blocklist.');
         return;
       }
 
       if (!organization) {
-        setStatus('Create an organization first.');
         return;
       }
 
       if (!isAdmin) {
-        setStatus('Only organization admins can edit blocklist.');
         return;
       }
 
@@ -304,37 +275,30 @@ function App() {
 
       setOrgBlockedWebsites(payload.blockedWebsites);
       setOrgWebsiteInput('');
-      setStatus(`Added ${normalizedWebsite} to org blocked websites.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not add website.';
-      setStatus(message);
+      console.error('Could not add org blocked website:', error);
     }
   }
 
   // Remove a site from the shared org blocklist through the backend.
   async function removeOrgBlockedWebsite(website: string) {
     if (!token) {
-      setStatus('Sign in first to edit the organization blocklist.');
       return;
     }
 
     if (!organization) {
-      setStatus('Create an organization first.');
       return;
     }
 
     if (!isAdmin) {
-      setStatus('Only organization admins can edit blocklist.');
       return;
     }
 
     try {
       const payload = await removeWebsiteFromBlocklist(backendUrl, organization.id, token, website);
       setOrgBlockedWebsites(payload.blockedWebsites);
-      setStatus(`Removed ${website} from org blocked websites.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not remove website.';
-      setStatus(message);
+      console.error('Could not remove org blocked website:', error);
     }
   }
 
@@ -342,12 +306,10 @@ function App() {
   async function createOrganizationForCurrentUser() {
     const nextOrgName = organizationNameInput.trim();
     if (!token) {
-      setStatus('Sign in first to create an organization.');
       return;
     }
 
     if (!nextOrgName) {
-      setStatus('Enter an organization name.');
       return;
     }
 
@@ -358,10 +320,8 @@ function App() {
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
       setOrganizationNameInput('');
       setJoinOrganizationIdInput('');
-      setStatus(`Organization ${payload.organization.name} created.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not create organization.';
-      setStatus(message);
+      console.error('Could not create organization:', error);
     }
   }
 
@@ -369,12 +329,10 @@ function App() {
   async function joinOrganizationForCurrentUser() {
     const nextOrganizationId = joinOrganizationIdInput.trim();
     if (!token) {
-      setStatus('Sign in first to join an organization.');
       return;
     }
 
     if (!nextOrganizationId) {
-      setStatus('Enter an organization ID.');
       return;
     }
 
@@ -385,17 +343,14 @@ function App() {
       setOrgBlockedWebsites(payload.organization.blockedWebsites);
       setJoinOrganizationIdInput('');
       setView('organization');
-      setStatus(`Joined organization ${payload.organization.name} as a member.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not join organization.';
-      setStatus(message);
+      console.error('Could not join organization:', error);
     }
   }
 
   // Leave the current organization after confirming the action with the user.
   async function leaveCurrentOrganization() {
     if (!token || !organization) {
-      setStatus('No organization to leave.');
       return;
     }
 
@@ -405,7 +360,7 @@ function App() {
     }
 
     try {
-      const payload = await leaveOrganization(backendUrl, organization.id, token);
+      await leaveOrganization(backendUrl, organization.id, token);
       setOrganization(null);
       setIsAdmin(false);
       setOrgBlockedWebsites([]);
@@ -413,10 +368,8 @@ function App() {
       setJoinOrganizationIdInput('');
       await clearOrgBlockedWebsites();
       setView('home');
-      setStatus(payload.message ?? 'Left organization.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Could not leave organization.';
-      setStatus(message);
+      console.error('Could not leave organization:', error);
     }
   }
 
@@ -425,23 +378,41 @@ function App() {
     void saveOrgBlockedWebsites(orgBlockedWebsites);
   }, [orgBlockedWebsites]);
 
+  const headerLabel = token
+    ? view === 'home'
+      ? 'Home'
+      : view === 'blocked-websites'
+        ? 'Blocked websites'
+        : 'Organization'
+    : 'Sign in';
+
   // Show a minimal loading screen while initial storage/auth reads complete.
   if (isInitializing) {
     return (
-      <>
-        <h1>TaskFocused</h1>
+      <div className="app-shell">
+        <header className="app-header">
+          <span className="app-logo">TaskFocused</span>
+          <span className="divider-dot" />
+          <span className="header-label">{headerLabel}</span>
+        </header>
         <div className="card user-home-actions">
+          <h1>TaskFocused</h1>
           <p>Loading...</p>
         </div>
-      </>
+      </div>
     );
   }
 
   // Authenticated popup view with tab navigation.
   if (token) {
     return (
-      <>
-        <h1>Task Focused</h1>
+      <div className="app-shell">
+        <header className="app-header">
+          <span className="app-logo">TaskFocused</span>
+          <span className="divider-dot" />
+          <span className="header-label">{headerLabel}</span>
+        </header>
+
         <div className="view-switch">
           <button className={view === 'home' ? 'active' : ''} onClick={() => setView('home')}>
             Home
@@ -461,11 +432,11 @@ function App() {
             </button>
           ) : null}
         </div>
+
         <div className="card">
           {view === 'home' ? (
             <HomePage
               email={email}
-              token={token}
               hasOrganization={Boolean(organization)}
               organizationNameInput={organizationNameInput}
               joinOrganizationIdInput={joinOrganizationIdInput}
@@ -543,21 +514,24 @@ function App() {
               </button>
             </>
           )}
-          <p>{status}</p>
         </div>
-      </>
+      </div>
     );
   }
 
   // Signed-out popup view.
   return (
-    <>
-      <h1>TaskFocused</h1>
+    <div className="app-shell">
+      <header className="app-header">
+        <span className="app-logo">TaskFocused</span>
+        <span className="divider-dot" />
+        <span className="header-label">{headerLabel}</span>
+      </header>
       <div className="card user-home-actions">
+        <h1>TaskFocused</h1>
         <button onClick={() => void signIn()}>Login</button>
-        <p>{status}</p>
       </div>
-    </>
+    </div>
   );
 }
 
