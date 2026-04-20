@@ -1,6 +1,5 @@
 type HomePageProps = {
   email: string;
-  token: string;
   hasOrganization: boolean;
   organizationNameInput: string;
   joinOrganizationIdInput: string;
@@ -13,7 +12,6 @@ type HomePageProps = {
 
 export function HomePage({
   email,
-  token,
   hasOrganization,
   organizationNameInput,
   joinOrganizationIdInput,
@@ -48,8 +46,7 @@ export function HomePage({
           </div>
         </>
       ) : null}
-      <p>{email ? `Email: ${email}` : 'No profile email available'}</p>
-      <p>{token ? `Token saved (${token.slice(0, 14)}...)` : 'No token saved yet'}</p>
+      {email ? null : <p>No profile email available.</p>}
     </>
   );
 }

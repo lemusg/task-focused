@@ -58,17 +58,6 @@
   color: var(--text-muted);
 }
 
-.status-line {
-  margin-top: 6px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  word-break: break-word;
-}
-
 .user-home-actions {
   min-height: 190px;
   justify-content: center;
