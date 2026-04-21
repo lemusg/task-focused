@@ -18,7 +18,7 @@
     "webNavigation"
   ],
   "oauth2": {
-    "client_id": "458085931355-v3tqsu6jdh5uk1eeefnpsqovuvjksboq.apps.googleusercontent.com",
+    "client_id": "",
     "scopes": [
       "openid",
       "email",
