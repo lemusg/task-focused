@@ -3,24 +3,77 @@ An app to help keep you focused on what's important.
 
 # Setup Instructions
 
-Steps to get this running on your machine:
-- git clone
-- git pull
-- from frontend, npm install
-- from backend, npm install
+## Prerequisites
+- Node.js (v18+ recommended)
+- npm
+- MongoDB (local or remote)
 
-To connect the backend server, make a `frontend/.env` file and set `VITE_BACKEND_URL=http://localhost:8000` for local development.
+## Backend Setup
 
-You can also define extension auth env vars in `frontend/.env`:
-- `EXTENSION_KEY` for a stable extension ID across teammates
-- `EXTENSION_OAUTH_CLIENT_ID` to inject `oauth2.client_id` at build time
+1. **Install dependencies:**
+   ```bash
+   cd backend
+   npm install
+   ```
 
-- from the backend, `run npm run dev`
-- from the frontend, `run npm run build`
+2. **Configure environment variables:**
+   - Copy `.env.example` to `.env` and update the values as needed.
+   - Example:
+     ```env
+     MONGODB_URI=mongodb://localhost:27017/task-focused
+     ```
 
-Open up chrome://extensions and turn on developer mode. Select load unpacked, and select the extensions directory. Keep in mind that since extension/dist is what is being loaded, and it is built from the frontend React code. This means that when changing the frontend, to see changes you must run npm run build and reload the extension.
+3. **Start MongoDB:**
+   - Make sure your MongoDB server is running locally or update the URI for a remote server.
 
-Keep backend server on to see changes to backend.
+4. **Seed the database (optional):**
+   - To populate the database with sample users:
+     ```bash
+     npm run seed
+     ```
+
+5. **Run the development server:**
+   ```bash
+   cd backend
+   npm run dev
+   ```
+
+## Frontend Setup
+
+1. **Install dependencies:**
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. **Configure environment variables:**
+   - Create a `frontend/.env` file and add:
+     ```env
+     VITE_BACKEND_URL=http://localhost:8000
+     ```
+   - Optional extension auth env vars:
+     - `EXTENSION_KEY` for a stable extension ID across teammates
+     - `EXTENSION_OAUTH_CLIENT_ID` to inject `oauth2.client_id` at build time
+
+3. **Build the frontend:**
+   ```bash
+   cd frontend
+   npm run build
+   ```
+
+## Extension Setup
+
+1. Open `chrome://extensions` and turn on developer mode
+2. Select "Load unpacked" and select the `extension` directory
+3. Note: The extension is built from the frontend React code, so `extension/dist` is what is being loaded
+   - When changing the frontend, run `npm run build` and reload the extension to see changes
+   - Keep the backend server running to see changes to backend API
+
+## Important Notes
+
+- Make sure to keep your `.env` file private and never commit it to version control.
+- For production, update the `MONGODB_URI` to point to your production database.
+- Since `extension/dist` is what is loaded, changes to the frontend require running `npm run build` and reloading the extension.
 
 # Stable Extension ID
 

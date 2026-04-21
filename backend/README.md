@@ -2,48 +2,23 @@
 
 This is the backend for the Task-Focused project. It is built with Node.js, Express, TypeScript, and MongoDB (via Mongoose).
 
-## Prerequisites
-- Node.js (v18+ recommended)
-- npm
-- MongoDB (local or remote)
-
-## Setup
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment variables:**
-   - Copy `.env.example` to `.env` and update the values as needed.
-   - Example:
-     ```env
-     MONGODB_URI=mongodb://localhost:27017/task-focused
-     ```
-
-3. **Start MongoDB:**
-   - Make sure your MongoDB server is running locally or update the URI for a remote server.
-
-4. **Seed the database (optional):**
-   - To populate the database with sample users:
-     ```bash
-     npm run seed
-     ```
-
-5. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
+See the root [README](../README.md) for setup instructions.
 
 ## Project Structure
 
 - `src/` — Express app source code
   - `app.ts` — Main app entry point
+  - `middleware/` — Express middleware
+    - `requireGoogleAuth.ts` — Google OAuth authentication middleware
   - `routes/` — API route handlers
     - `ping.ts` — Health check endpoint
     - `ping-db.ts` — Database connectivity/sample user endpoint
+    - `users.ts` — User management endpoints
+    - `organizations.ts` — Organization management endpoints
+    - `chat.ts` — Chat endpoints
 - `db/` — Database utilities and models
   - `models/User.ts` — Mongoose User schema/model
+  - `models/Organization.ts` — Mongoose Organization schema/model
   - `index.ts` — MongoDB connection logic
   - `mongoConfig.ts` — MongoDB URI utility
   - `seed.ts` — Database seeding script
@@ -55,6 +30,7 @@ This is the backend for the Task-Focused project. It is built with Node.js, Expr
 
 - `npm run dev` — Start the backend in development mode
 - `npm run seed` — Seed the database with sample data
+- `npm run build` — Build the backend
 
 ## API Endpoints
 
