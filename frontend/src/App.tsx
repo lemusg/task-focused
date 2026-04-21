@@ -61,6 +61,7 @@ function App() {
   // Core popup state.
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [view, setView] = useState<View>('home');
+  const [isOrganizationModalOpen, setIsOrganizationModalOpen] = useState<boolean>(false);
   const [token, setToken] = useState<string>('');
   const [email, setEmail] = useState<string>('');
 
@@ -253,6 +254,7 @@ function App() {
     setOrganization(null);
     setOrgBlockedWebsites([]);
     setIsAdmin(false);
+    setIsOrganizationModalOpen(false);
   }
 
   // Add a site to the browser-only personal blocklist.
@@ -358,6 +360,8 @@ function App() {
       });
       setOrganizationNameInput('');
       setJoinOrganizationIdInput('');
+      setIsOrganizationModalOpen(false);
+      setView('organization');
     } catch (error) {
       console.error('Could not create organization:', error);
     }
@@ -387,10 +391,21 @@ function App() {
         allowDurationMinutes,
       });
       setJoinOrganizationIdInput('');
+      setIsOrganizationModalOpen(false);
       setView('organization');
     } catch (error) {
       console.error('Could not join organization:', error);
     }
+  }
+
+  function onOrganizationTabClick() {
+    if (organization) {
+      setIsOrganizationModalOpen(false);
+      setView('organization');
+      return;
+    }
+
+    setIsOrganizationModalOpen(true);
   }
 
   async function updateOrgAllowDuration(minutes: number) {
@@ -436,6 +451,7 @@ function App() {
       setJoinOrganizationIdInput('');
       await clearOrgBlockedWebsites();
       await saveOrganizationContext(null);
+      setIsOrganizationModalOpen(false);
       setView('home');
     } catch (error) {
       console.error('Could not leave organization:', error);
@@ -492,32 +508,16 @@ function App() {
           >
             Blocked websites
           </button>
-          {organization ? (
-            <button
-              className={view === 'organization' ? 'active' : ''}
-              onClick={() => setView('organization')}
-            >
+            <button className={view === 'organization' ? 'active' : ''} onClick={onOrganizationTabClick}>
               Organization
             </button>
-          ) : null}
         </div>
 
         <div className="card">
           {view === 'home' ? (
             <HomePage
               email={email}
-              hasOrganization={Boolean(organization)}
-              organizationNameInput={organizationNameInput}
-              joinOrganizationIdInput={joinOrganizationIdInput}
               onSignOut={signOut}
-              onOrganizationNameInputChange={setOrganizationNameInput}
-              onJoinOrganizationIdInputChange={setJoinOrganizationIdInput}
-              onCreateOrganization={() => {
-                void createOrganizationForCurrentUser();
-              }}
-              onJoinOrganization={() => {
-                void joinOrganizationForCurrentUser();
-              }}
             />
           ) : view === 'blocked-websites' ? (
             <PersonalBlockedWebsitesPage
@@ -534,7 +534,7 @@ function App() {
           ) : !organization ? (
             <>
               <h2>Organization</h2>
-              <p>No organization yet. Create one from the Home screen.</p>
+                <p>No organization yet. Use the Organization button to create or join one.</p>
             </>
           ) : !isAdmin ? (
             <>
@@ -601,6 +601,46 @@ function App() {
               </button>
             </>
           )}
+
+          {isOrganizationModalOpen ? (
+            <div
+              className="modal-overlay"
+              role="presentation"
+              onClick={() => setIsOrganizationModalOpen(false)}
+            >
+              <div
+                className="modal-card"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Organization options"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <h2>Organization</h2>
+                <p>Create a new organization or join an existing one.</p>
+                <div className="website-form">
+                  <input
+                    type="text"
+                    value={organizationNameInput}
+                    placeholder="New organization name"
+                    onChange={(event) => setOrganizationNameInput(event.target.value)}
+                  />
+                  <button onClick={() => void createOrganizationForCurrentUser()}>
+                    Create organization
+                  </button>
+                </div>
+                <div className="website-form">
+                  <input
+                    type="text"
+                    value={joinOrganizationIdInput}
+                    placeholder="Organization ID"
+                    onChange={(event) => setJoinOrganizationIdInput(event.target.value)}
+                  />
+                  <button onClick={() => void joinOrganizationForCurrentUser()}>Join organization</button>
+                </div>
+                <button onClick={() => setIsOrganizationModalOpen(false)}>Close</button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     );
