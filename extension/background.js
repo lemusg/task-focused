@@ -14,6 +14,7 @@ const TEMP_ALLOW_MAX_MS = 60 * 60 * 1000; // 60 minutes
 const BLOCKED_PAGE_PATH = 'blocked.html';
 const ORG_BLOCKLIST_SYNC_ALARM = 'ORG_BLOCKLIST_SYNC';
 const ORG_BLOCKLIST_MIN_SYNC_WINDOW_MS = 60 * 1000; // 1 minute
+const TEMP_ALLOW_EXPIRE_ALARM_PREFIX = 'TEMP_ALLOW_EXPIRE:';
 
 // Keep in sync with extension/blocked-page.js (dev default).
 const BACKEND_URL = 'http://localhost:8000';
@@ -168,16 +169,25 @@ function isTemporarilyAllowed(hostname) {
   const canonicalized = canonicalizeHostname(hostname);
   if (!canonicalized) return false;
 
-  const expiry = temporaryAllowances.get(canonicalized);
-  if (typeof expiry !== 'number') return false;
+  const now = Date.now();
 
-  // Drop expired entries the first time they are checked again.
-  if (Date.now() > expiry) {
-    temporaryAllowances.delete(canonicalized);
-    return false;
+  // Allow applies to the exact hostname OR any subdomain of an allowed hostname.
+  // This is important for flows like login/2FA that hop across subdomains.
+  for (const [allowedHostname, expiry] of temporaryAllowances.entries()) {
+    if (typeof expiry !== 'number') continue;
+
+    // Drop expired entries the first time they are checked again.
+    if (now > expiry) {
+      temporaryAllowances.delete(allowedHostname);
+      continue;
+    }
+
+    if (hostnameMatchesBlockedHostname(canonicalized, allowedHostname)) {
+      return true;
+    }
   }
 
-  return true;
+  return false;
 }
 
 // Grant short-term access after the blocked-page AI approves a visit.
@@ -190,12 +200,24 @@ function clampDurationMs(ms) {
   return Math.min(TEMP_ALLOW_MAX_MS, Math.max(TEMP_ALLOW_MIN_MS, Math.floor(ms)));
 }
 
+function scheduleTemporaryAllowanceExpiryAlarm(allowedHostname, expiryEpochMs) {
+  try {
+    if (!chrome.alarms?.create) return;
+    const name = `${TEMP_ALLOW_EXPIRE_ALARM_PREFIX}${encodeURIComponent(allowedHostname)}`;
+    chrome.alarms.create(name, { when: expiryEpochMs + 50 });
+  } catch (error) {
+    console.warn('Failed to schedule allowance expiry alarm', { allowedHostname, error });
+  }
+}
+
 function addTemporaryAllowanceWithDuration(hostname, durationMs) {
   const canonicalized = canonicalizeHostname(hostname);
   if (!canonicalized) return;
 
   const clamped = clampDurationMs(durationMs);
-  temporaryAllowances.set(canonicalized, Date.now() + clamped);
+  const expiry = Date.now() + clamped;
+  temporaryAllowances.set(canonicalized, expiry);
+  scheduleTemporaryAllowanceExpiryAlarm(canonicalized, expiry);
   console.log(`Temporarily allowed: ${canonicalized} for ${Math.round(clamped / 60000)} min`);
 }
 
@@ -356,8 +378,19 @@ chrome.runtime.onStartup.addListener(() => {
 // Periodically refresh the org blocklist from the backend.
 chrome.alarms?.create?.(ORG_BLOCKLIST_SYNC_ALARM, { periodInMinutes: 5 });
 chrome.alarms?.onAlarm?.addListener((alarm) => {
-  if (alarm?.name !== ORG_BLOCKLIST_SYNC_ALARM) return;
-  void syncOrgBlocklist('alarms.onAlarm');
+  const name = String(alarm?.name ?? '');
+  if (name === ORG_BLOCKLIST_SYNC_ALARM) {
+    void syncOrgBlocklist('alarms.onAlarm');
+    return;
+  }
+
+  if (name.startsWith(TEMP_ALLOW_EXPIRE_ALARM_PREFIX)) {
+    const encoded = name.slice(TEMP_ALLOW_EXPIRE_ALARM_PREFIX.length);
+    const allowedHostname = decodeURIComponent(encoded);
+    temporaryAllowances.delete(allowedHostname);
+    cachedBlocklistSet = null;
+    void rescanOpenTabs('temporaryAllowanceExpired');
+  }
 });
 
 // Clear the cached blocklist and rescan when local storage changes.

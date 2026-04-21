@@ -17,6 +17,7 @@ import {
   getExtensionId,
   getOAuthClientId,
   getProfileEmail,
+  loadSavedUserId,
   loadSavedToken,
   removeCachedToken,
   saveOrganizationContext,
@@ -112,8 +113,9 @@ function App() {
 
     async function initialize() {
       try {
-        const [savedToken, personalWebsites, orgWebsites] = await Promise.all([
+        const [savedToken, savedUserId, personalWebsites, orgWebsites] = await Promise.all([
           loadSavedToken(),
+          loadSavedUserId(),
           loadPersonalBlockedWebsites(),
           loadOrgBlockedWebsites(),
         ]);
@@ -132,9 +134,10 @@ function App() {
 
         setPersonalBlockedWebsites(personalWebsites);
         setOrgBlockedWebsites(orgWebsites);
+        const resolvedUserId = nextEmail || savedUserId || '';
         setEmail(nextEmail);
-        if (nextEmail) {
-          void saveUserId(nextEmail);
+        if (resolvedUserId) {
+          void saveUserId(resolvedUserId);
         }
 
         if (savedToken) {
@@ -143,8 +146,8 @@ function App() {
             console.error('upsertOAuthUser failed during initialization:', error);
           });
 
-          if (nextEmail) {
-            void refreshOrganizationForUser(nextEmail, savedToken).catch((error) => {
+          if (resolvedUserId) {
+            void refreshOrganizationForUser(resolvedUserId, savedToken).catch((error) => {
               console.error('initialize org refresh failed:', error);
             });
           } else {

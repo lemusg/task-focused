@@ -12,6 +12,7 @@
   "permissions": [
     "identity",
     "identity.email",
+    "alarms",
     "storage",
     "tabs",
     "webNavigation"
