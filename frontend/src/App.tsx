@@ -39,8 +39,14 @@ import { upsertOAuthUser } from './features/users/usersApi';
 
 type View = 'home' | 'blocked-websites' | 'organization';
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
 const authDebugLoggingEnabled = import.meta.env.DEV;
+
+function getBackendUrl() {
+  const configuredBackendUrl = import.meta.env.VITE_BACKEND_URL?.trim();
+  return (configuredBackendUrl || 'http://localhost:8000').replace(/\/+$/, '');
+}
+
+const backendUrl = getBackendUrl();
 
 // Only print auth debug logs during local development.
 function debugAuthLog(message?: unknown, ...optionalParams: unknown[]) {

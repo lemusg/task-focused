@@ -9,7 +9,7 @@ Steps to get this running on your machine:
 - from frontend, npm install
 - from backend, npm install
 
-To connect backend server, make a `.env` file in frontend, and put in backend server (http://localhost:8000 for development)
+To connect the backend server, make a `frontend/.env` file and set `VITE_BACKEND_URL=http://localhost:8000` for local development.
 
 You can also define extension auth env vars in `frontend/.env`:
 - `EXTENSION_KEY` for a stable extension ID across teammates
