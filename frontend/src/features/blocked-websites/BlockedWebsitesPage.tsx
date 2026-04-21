@@ -29,7 +29,7 @@ export function BlockedWebsitesPage({
   return (
     <>
       {/* Header copy for the shared organization list. */}
-      <h2>Org blocked websites</h2>
+      <h2>Blocked Websites</h2>
       <p>{organizationName ? `` : 'No organization yet.'}</p>
       {!canManage ? <p>Only admins can edit this blocklist.</p> : null}
       {canManage ? (

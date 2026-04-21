@@ -28,7 +28,8 @@
     {
       "resources": [
         "blocked.html",
-        "blocked-page.js"
+        "blocked-page.js",
+        "system-prompt.md"
       ],
       "matches": [
         "<all_urls>"

@@ -2,10 +2,15 @@ const PERSONAL_BLOCKED_WEBSITES_KEY = 'personalBlockedWebsites';
 const ORG_BLOCKED_WEBSITES_KEY = 'orgBlockedWebsites';
 const AUTH_TOKEN_KEY = 'authToken';
 const USER_ID_KEY = 'userId';
+const ORG_ID_KEY = 'organizationId';
+const ORG_IS_ADMIN_KEY = 'organizationIsAdmin';
+const ORG_ALLOW_DURATION_MINUTES_KEY = 'organizationAllowDurationMinutes';
 const ORG_BLOCKLIST_LAST_SYNC_KEY = 'orgBlockedWebsitesLastSyncedAt';
 const ENFORCEMENT_DEDUPE_WINDOW_MS = 1500;
 const RESCAN_DEDUPE_WINDOW_MS = 3000;
 const TEMP_ALLOW_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const TEMP_ALLOW_MIN_MS = 60 * 1000; // 1 minute
+const TEMP_ALLOW_MAX_MS = 60 * 60 * 1000; // 60 minutes
 const BLOCKED_PAGE_PATH = 'blocked.html';
 const ORG_BLOCKLIST_SYNC_ALARM = 'ORG_BLOCKLIST_SYNC';
 const ORG_BLOCKLIST_MIN_SYNC_WINDOW_MS = 60 * 1000; // 1 minute
@@ -76,6 +81,11 @@ async function syncOrgBlocklist(reason = 'sync') {
 
     const data = await res.json();
     await writeOrgBlocklistToStorage(data?.organization?.blockedWebsites ?? [], { syncedAt: Date.now() });
+    const allowDurationMinutes = Number(data?.organization?.allowDurationMinutes ?? 5);
+    await chrome.storage.local.set({
+      [ORG_ALLOW_DURATION_MINUTES_KEY]:
+        Number.isFinite(allowDurationMinutes) ? Math.min(60, Math.max(1, Math.floor(allowDurationMinutes))) : 5,
+    });
   } catch (error) {
     console.warn('Org blocklist sync error', { reason, error });
   }
@@ -172,11 +182,21 @@ function isTemporarilyAllowed(hostname) {
 
 // Grant short-term access after the blocked-page AI approves a visit.
 function addTemporaryAllowance(hostname) {
+  addTemporaryAllowanceWithDuration(hostname, TEMP_ALLOW_TTL_MS);
+}
+
+function clampDurationMs(ms) {
+  if (!Number.isFinite(ms)) return TEMP_ALLOW_TTL_MS;
+  return Math.min(TEMP_ALLOW_MAX_MS, Math.max(TEMP_ALLOW_MIN_MS, Math.floor(ms)));
+}
+
+function addTemporaryAllowanceWithDuration(hostname, durationMs) {
   const canonicalized = canonicalizeHostname(hostname);
-  if (canonicalized) {
-    temporaryAllowances.set(canonicalized, Date.now() + TEMP_ALLOW_TTL_MS);
-    console.log(`Temporarily allowed: ${canonicalized} for ${TEMP_ALLOW_TTL_MS / 60000} min`);
-  }
+  if (!canonicalized) return;
+
+  const clamped = clampDurationMs(durationMs);
+  temporaryAllowances.set(canonicalized, Date.now() + clamped);
+  console.log(`Temporarily allowed: ${canonicalized} for ${Math.round(clamped / 60000)} min`);
 }
 
 // Remove stale entries from a recent-event map before adding new ones.
@@ -389,9 +409,31 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // Allow the blocked page to request a short-term exception for a hostname.
   if (message?.type === 'ALLOW_TEMPORARILY' && typeof message.hostname === 'string') {
-    addTemporaryAllowance(message.hostname);
-    sendResponse({ ok: true });
-    return true;
+    const durationMs = typeof message.durationMs === 'number' ? message.durationMs : undefined;
+
+    // Org users always use the organization-wide duration. Only users without an org can choose a custom duration.
+    chrome.storage.local
+      .get([ORG_ID_KEY, ORG_ALLOW_DURATION_MINUTES_KEY])
+      .then((data) => {
+        const orgId = typeof data[ORG_ID_KEY] === 'string' ? data[ORG_ID_KEY] : '';
+        const orgMinutes = Number(data[ORG_ALLOW_DURATION_MINUTES_KEY] ?? 5);
+        const orgDurationMs = Number.isFinite(orgMinutes) ? orgMinutes * 60 * 1000 : TEMP_ALLOW_TTL_MS;
+
+        const chosen = orgId
+          ? orgDurationMs
+          : typeof durationMs === 'number'
+            ? durationMs
+            : TEMP_ALLOW_TTL_MS;
+
+        addTemporaryAllowanceWithDuration(message.hostname, chosen);
+        sendResponse({ ok: true });
+      })
+      .catch((error) => {
+        console.warn('Failed to read org context for allowance duration', error);
+        addTemporaryAllowanceWithDuration(message.hostname, TEMP_ALLOW_TTL_MS);
+        sendResponse({ ok: true });
+      });
+    return true; // async response
   }
 
   return false;
