@@ -22,6 +22,7 @@ An app to help keep you focused on what's important.
      ```env
      MONGODB_URI=mongodb://localhost:27017/task-focused
      ```
+   - ZAI_API_KEY is the API key for the ZAI API. You can get one by signing up for a free account at https://www.zai.com/.
 
 3. **Start MongoDB:**
    - Make sure your MongoDB server is running locally or update the URI for a remote server.
@@ -75,12 +76,11 @@ An app to help keep you focused on what's important.
 
 1. In Chrome, you should see and ID underneath the extension name. This is the extension ID.
 2. Go to https://console.cloud.google.com and create a new project.
-3. From the project dashboard, select "Create Gemini API Key", copy the key, and paste it into the `backend/.env` file as the `GEMINI_API_KEY` value.
-4. Return to the project dashboard, and select "APIs and Services", then select "OAuth Consent Screen", and select "Clients".
-5. Select "Create Client", select "Chrome Extension", and enter the extension ID as the "Item ID".
-6. This will create a new client ID. Copy the client ID, and paste it into the `frontend/.env` file as the `EXTENSION_OAUTH_CLIENT_ID` value.
-7. Rerun 'npm run build' in the frontend directory to update the extension.
-8. Reload the extension, and it should now be working.
+3. Return to the project dashboard, and select "APIs and Services", then select "OAuth Consent Screen", and select "Clients".
+4. Select "Create Client", select "Chrome Extension", and enter the extension ID as the "Item ID".
+5. This will create a new client ID. Copy the client ID, and paste it into the `frontend/.env` file as the `EXTENSION_OAUTH_CLIENT_ID` value.
+6. Rerun 'npm run build' in the frontend directory to update the extension.
+7. Reload the extension, and it should now be working.
 
 IF YOU DO NOT FOLLOW THESE STEPS, YOU WILL NOT BE ABLE TO LOG IN TO THE EXTENSION.
 
