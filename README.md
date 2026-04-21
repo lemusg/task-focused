@@ -47,13 +47,15 @@ An app to help keep you focused on what's important.
    ```
 
 2. **Configure environment variables:**
-   - Create a `frontend/.env` file and add:
+   - Copy `.env.example` to `.env` and update the values as needed.
+   - Example:
      ```env
      VITE_BACKEND_URL=http://localhost:8000
+     EXTENSION_KEY=
+     EXTENSION_OAUTH_CLIENT_ID=
      ```
-   - Optional extension auth env vars:
-     - `EXTENSION_KEY` for a stable extension ID across teammates
-     - `EXTENSION_OAUTH_CLIENT_ID` to inject `oauth2.client_id` at build time
+   - For EXTENSION_KEY, you can generate a new one by looking up an RSA private key generator online.
+   - Make sure to set this value before building the frontend.
 
 3. **Build the frontend:**
    ```bash
@@ -69,19 +71,24 @@ An app to help keep you focused on what's important.
    - When changing the frontend, run `npm run build` and reload the extension to see changes
    - Keep the backend server running to see changes to backend API
 
+## Back to the Front
+
+1. In Chrome, you should see and ID underneath the extension name. This is the extension ID.
+2. Go to https://console.cloud.google.com and create a new project.
+3. From the project dashboard, select "Create Gemini API Key", copy the key, and paste it into the `backend/.env` file as the `GEMINI_API_KEY` value.
+4. Return to the project dashboard, and select "APIs and Services", then select "OAuth Consent Screen", and select "Clients".
+5. Select "Create Client", select "Chrome Extension", and enter the extension ID as the "Item ID".
+6. This will create a new client ID. Copy the client ID, and paste it into the `frontend/.env` file as the `EXTENSION_OAUTH_CLIENT_ID` value.
+7. Rerun 'npm run build' in the frontend directory to update the extension.
+8. Reload the extension, and it should now be working.
+
+IF YOU DO NOT FOLLOW THESE STEPS, YOU WILL NOT BE ABLE TO LOG IN TO THE EXTENSION.
+
 ## Important Notes
 
 - Make sure to keep your `.env` file private and never commit it to version control.
 - For production, update the `MONGODB_URI` to point to your production database.
 - Since `extension/dist` is what is loaded, changes to the frontend require running `npm run build` and reloading the extension.
-
-# Stable Extension ID
-
-Add your shared extension key to `frontend/.env`:
-
-```env
-EXTENSION_KEY=<your-extension-public-key>
-```
 
 During `npm run build`, `extension/manifest.json` is automatically synced from env values.
 
